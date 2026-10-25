@@ -1,0 +1,60 @@
+# Every key also takes a flag (--poll-interval) or an environment variable (GASOMETER_POLL_INTERVAL).
+# Set the database URL through GASOMETER_DATABASE_URL rather than here.
+log-level: info
+log-format: json
+
+http-listen-address: ":9090"
+http-shutdown-timeout: 10s
+
+poll-interval: 60s
+block-retention: 48h
+
+horizons: [2, 30, 120]
+expiry-factor: 10
+
+predictors: [node, wallet, gasometer]
+
+gasometer-tip-quantile: 0.9
+gasometer-tip-window: 30
+gasometer-growth-quantile: 0.99
+gasometer-growth-window: 1h
+
+reference-txs:
+  - name: native
+    gas: 21000
+    data-size: 0
+  - name: erc20
+    gas: 65000
+    data-size: 68
+
+networks:
+  - name: base
+    chain-id: 8453
+    kind: opstack
+    coin: ETH
+    rpc:
+      urls: [https://mainnet.base.org, https://base-rpc.publicnode.com]
+    price-feed: "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70"
+    price-max-age: 1h
+    history-depth: 100000
+
+  - name: op
+    chain-id: 10
+    kind: opstack
+    coin: ETH
+    rpc:
+      urls: [https://mainnet.optimism.io, https://optimism-rpc.publicnode.com]
+    price-feed: "0x13e3Ee699D1909E989722E753853AE30b17e08c5"
+    price-max-age: 1h
+    history-depth: 100000
+
+  - name: cchain
+    chain-id: 43114
+    kind: avalanche-sae
+    coin: AVAX
+    rpc:
+      urls: [https://api.avax.network/ext/bc/C/rpc, https://avalanche-c-chain-rpc.publicnode.com]
+    price-feed: "0x0A77230d17318075983913bC2145DB16C7366156"
+    price-max-age: 1h
+    # The node refuses eth_feeHistory beyond 25,000 blocks behind head.
+    history-depth: 25000
