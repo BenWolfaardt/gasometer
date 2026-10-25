@@ -10,7 +10,6 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
-	github.com/rs/zerolog v1.35.1
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	go.uber.org/goleak v1.3.0

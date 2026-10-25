@@ -7,7 +7,7 @@ COMPOSE ?= $(CONTAINER) compose
 COMPOSE_FILE := deploy/docker-compose.yml
 
 FUZZTIME ?= 10s
-FUZZ_PKGS := $(shell grep -rlE '^func Fuzz' tests/unit | xargs -n1 dirname 2>/dev/null | sort -u | sed 's|^|./|')
+FUZZ_PKGS := $(shell git ls-files --cached --others --exclude-standard '*_test.go' | xargs grep -lE '^func Fuzz' | xargs -n1 dirname | sort -u | sed 's|^|./|')
 
 TEST_PG_NAME := gasometer-test-pg
 TEST_PG_PORT ?= 55432
@@ -63,19 +63,19 @@ test-db-down: ## Stop the integration test Postgres
 
 .PHONY: integration
 integration: ## Run integration tests against GASOMETER_TEST_DATABASE_URL (see test-db-up)
-	go test -tags integration -count=1 ./tests/integration/...
+	go test -tags integration -count=1 ./postgres/... ./cmd/...
 
 .PHONY: live
 live: ## Replay recent Base and OP headers against the fee model (needs network)
-	go test -tags live -count=1 -v ./tests/integration/...
+	go test -tags live -count=1 -v -run TestLive ./rpc/
 
 .PHONY: record-fixtures
-record-fixtures: ## Re-record the RPC fixtures tests/unit/rpc replays (needs network)
-	go test -tags record -count=1 -run TestRecordFixtures ./tests/integration/...
+record-fixtures: ## Re-record the fixtures in rpc/testdata (needs network)
+	go test -tags record -count=1 -run TestRecordFixtures ./rpc/
 
 .PHONY: migrate
 migrate: ## Apply migrations to DATABASE_URL
-	$(MIGRATE) -path internal/infrastructure/repositories/migrations -database "$(DATABASE_URL)" up
+	$(MIGRATE) -path postgres/migrations -database "$(DATABASE_URL)" up
 
 .PHONY: compose-up
 compose-up: ## Start gasometer, Postgres and Alloy (needs deploy/.env)

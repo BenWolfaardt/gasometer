@@ -6,28 +6,23 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rs/zerolog"
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/BenWolfaardt/gasometer/internal/domain/entities"
-	"github.com/BenWolfaardt/gasometer/internal/domain/repositories"
-	"github.com/BenWolfaardt/gasometer/internal/domain/services"
-	"github.com/BenWolfaardt/gasometer/internal/infrastructure/config"
-	"github.com/BenWolfaardt/gasometer/internal/infrastructure/http"
-	"github.com/BenWolfaardt/gasometer/internal/infrastructure/logging"
-	"github.com/BenWolfaardt/gasometer/internal/infrastructure/metrics"
-	postgres "github.com/BenWolfaardt/gasometer/internal/infrastructure/repositories"
-	"github.com/BenWolfaardt/gasometer/internal/infrastructure/rpc"
-	"github.com/BenWolfaardt/gasometer/internal/infrastructure/scheduler"
-	"github.com/BenWolfaardt/gasometer/internal/usecases"
+	"github.com/BenWolfaardt/gasometer"
+	"github.com/BenWolfaardt/gasometer/http"
+	"github.com/BenWolfaardt/gasometer/poll"
+	"github.com/BenWolfaardt/gasometer/postgres"
+	"github.com/BenWolfaardt/gasometer/predict"
+	"github.com/BenWolfaardt/gasometer/prometheus"
+	"github.com/BenWolfaardt/gasometer/rpc"
 )
 
 const pruneInterval = time.Hour
@@ -44,18 +39,18 @@ func main() {
 // run wires every dependency and blocks until ctx ends. Shutdown order: the loops finish their ticks, the HTTP
 // server drains, then the RPC clients and the database close.
 func run(ctx context.Context, args []string, stderr io.Writer) error {
-	v, err := config.BuildViper(config.BuildFlagSet(), args, stderr)
+	v, err := buildViper(buildFlagSet(), args, stderr)
 	if errors.Is(err, pflag.ErrHelp) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	cfg, err := config.GetConfig(v)
+	cfg, err := getConfig(v)
 	if err != nil {
 		return err
 	}
-	log, err := logging.New(cfg.Log.Level, cfg.Log.Format, stderr)
+	log, err := newLogger(cfg.Log.Level, cfg.Log.Format, stderr)
 	if err != nil {
 		return err
 	}
@@ -69,37 +64,38 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 	}
 	defer func() { _ = db.Close() }()
 
-	registry := prometheus.NewRegistry()
-	recorder := metrics.NewRecorder(registry)
-	blocks := postgres.NewPostgresBlockStore(db)
-	snapshots := postgres.NewPostgresSnapshotStore(db)
-	predictions := postgres.NewPostgresPredictionStore(db)
-	stores := stores{blocks: blocks, snapshots: snapshots, predictions: predictions, metrics: recorder}
+	recorder := prometheus.NewRecorder()
+	stores := stores{
+		blocks:      postgres.NewBlockStore(db),
+		snapshots:   postgres.NewSnapshotStore(db),
+		predictions: postgres.NewPredictionStore(db),
+		metrics:     recorder,
+	}
 
-	var loops []*scheduler.Loop
-	for _, network := range cfg.Networks {
-		recorder.InitNetwork(network.Network.Name)
-		client, err := rpc.NewClient(ctx, network.Network.Name, network.RPC, recorder)
+	var loops []*poll.Loop
+	for _, n := range cfg.Networks {
+		recorder.InitNetwork(n.Name)
+		client, err := rpc.NewClient(ctx, n.Name, rpc.Config(n.RPC), recorder)
 		if err != nil {
 			return err
 		}
 		defer client.Close()
-		tick, err := networkTick(cfg, network, client, stores, log)
+		tick, err := pollTick(cfg, n, client, stores, log)
 		if err != nil {
 			return err
 		}
-		loops = append(loops, scheduler.NewLoop(cfg.Schedule.PollInterval, scheduler.ShutdownGrace, tick))
+		loops = append(loops, poll.NewLoop(cfg.Schedule.PollInterval, poll.ShutdownGrace, tick))
 	}
-	prune := usecases.NewPrune(blocks, cfg.Schedule.BlockRetention, time.Now)
-	loops = append(loops, scheduler.NewLoop(pruneInterval, scheduler.ShutdownGrace, scheduler.NewPruneTick(prune, log)))
+	pruner := poll.NewPruner(stores.blocks, cfg.Schedule.BlockRetention, time.Now)
+	loops = append(loops, poll.NewLoop(pruneInterval, poll.ShutdownGrace, poll.NewPruneTick(pruner, log)))
 
 	listener, err := net.Listen("tcp", cfg.HTTP.ListenAddress)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", cfg.HTTP.ListenAddress, err)
 	}
-	server := http.NewServer(registry, db.PingContext, cfg.HTTP.ShutdownTimeout)
+	server := http.NewServer(recorder.Gatherer(), db.PingContext, cfg.HTTP.ShutdownTimeout)
 
-	log.Info().Int("networks", len(cfg.Networks)).Str("listen", listener.Addr().String()).Msg("gasometer started")
+	log.Info("gasometer started", "networks", len(cfg.Networks), "listen", listener.Addr().String())
 	g, gctx := errgroup.WithContext(ctx)
 	for _, loop := range loops {
 		g.Go(func() error {
@@ -109,41 +105,51 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 	}
 	g.Go(func() error { return server.Serve(gctx, listener) })
 	err = g.Wait()
-	log.Info().Err(err).Msg("gasometer stopped")
+	log.Info("gasometer stopped", "err", err)
 	return err
 }
 
 type stores struct {
-	blocks      repositories.BlockStore
-	snapshots   repositories.SnapshotStore
-	predictions repositories.PredictionStore
-	metrics     *metrics.Recorder
+	blocks      *postgres.BlockStore
+	snapshots   *postgres.SnapshotStore
+	predictions *postgres.PredictionStore
+	metrics     *prometheus.Recorder
 }
 
-func networkTick(cfg entities.Config, network entities.NetworkConfig, client *rpc.Client, s stores, log zerolog.Logger) (scheduler.Tick, error) {
-	name := network.Network.Name
-	predictors, err := buildPredictors(cfg, network.Network)
+func pollTick(cfg fileConfig, n networkConfig, client *rpc.Client, s stores, log *slog.Logger) (poll.Tick, error) {
+	network := gasometer.Network{Name: n.Name, ChainID: n.ChainID, Kind: gasometer.NetworkKind(n.Kind), Coin: n.Coin}
+	predictors, err := buildPredictors(cfg, network)
 	if err != nil {
 		return nil, err
 	}
-	collectDeps := usecases.CollectDeps{
-		Fees:      rpc.NewEVMFeeSource(client),
-		Prices:    rpc.NewChainlinkPriceSource(client, network.PriceFeed),
+	txs := referenceTxs(cfg)
+	gasometerParams := predict.Params(cfg.Gasometer)
+
+	collectorDeps := poll.CollectorDeps{
+		Fees:      rpc.NewFeeSource(client, rpc.FeeSourceLimits{HistoryDepth: n.HistoryDepth, Batch: n.FeeHistoryBatch}),
+		Prices:    rpc.NewChainlinkPriceSource(client, n.PriceFeed),
 		Blocks:    s.blocks,
 		Snapshots: s.snapshots,
 		Metrics:   s.metrics,
 		Now:       time.Now,
 		Log:       log,
 	}
-	if network.Network.HasL1Fee() {
-		collectDeps.L1Fees = rpc.NewOPStackL1FeeSource(client, network.Network.ChainID)
+	if network.HasL1Fee() {
+		collectorDeps.L1Fees = rpc.NewL1FeeSource(client, network.ChainID)
 	}
-	return scheduler.NewNetworkTick(name, scheduler.NetworkTickDeps{
-		Collect: usecases.NewCollectFees(network, cfg.ReferenceTxs, collectDeps),
-		Predict: usecases.NewPredict(name, cfg.Scoring.HorizonSeconds, cfg.Gasometer, usecases.PredictDeps{
+	collectorParams := poll.CollectorParams{
+		RequiredTipPercentile: n.RequiredTipPercentile,
+		PriceMaxAge:           n.PriceMaxAge,
+		InitialBackfill:       n.InitialBackfill,
+	}
+	settlerParams := poll.SettlerParams{ExpiryFactor: cfg.Scoring.ExpiryFactor, PriceMaxAge: n.PriceMaxAge}
+
+	return poll.NewTick(n.Name, poll.TickDeps{
+		Collector: poll.NewCollector(network, collectorParams, txs, collectorDeps),
+		Forecaster: poll.NewForecaster(n.Name, cfg.Scoring.Horizons, gasometerParams, poll.ForecasterDeps{
 			Predictors: predictors, Blocks: s.blocks, Predictions: s.predictions, Log: log,
 		}),
-		Score: usecases.NewScorePredictions(network, cfg.Scoring.ExpiryFactor, cfg.ReferenceTxs, usecases.ScoreDeps{
+		Settler: poll.NewSettler(n.Name, settlerParams, txs, poll.SettlerDeps{
 			Blocks: s.blocks, Snapshots: s.snapshots, Predictions: s.predictions, Metrics: s.metrics, Now: time.Now, Log: log,
 		}),
 		Metrics: s.metrics,
@@ -152,24 +158,32 @@ func networkTick(cfg entities.Config, network entities.NetworkConfig, client *rp
 	}), nil
 }
 
+func referenceTxs(cfg fileConfig) []gasometer.ReferenceTx {
+	txs := make([]gasometer.ReferenceTx, 0, len(cfg.ReferenceTxs))
+	for _, tx := range cfg.ReferenceTxs {
+		txs = append(txs, gasometer.ReferenceTx(tx))
+	}
+	return txs
+}
+
 // buildPredictors wires the configured predictors. OP Stack networks cap the gasometer projection with the fee
 // model; Avalanche uses the empirical projection alone until an SAE projector exists.
-func buildPredictors(cfg entities.Config, network entities.Network) ([]services.Predictor, error) {
-	projector := services.NewEmpiricalProjector(cfg.Gasometer.GrowthQuantile)
-	if network.Kind == entities.NetworkKindOPStack {
-		projector = services.NewWorstCaseProjector(projector)
+func buildPredictors(cfg fileConfig, network gasometer.Network) ([]gasometer.Predictor, error) {
+	var projector predict.BaseFeeProjector = predict.NewEmpiricalProjector(cfg.Gasometer.GrowthQuantile)
+	if network.Kind == gasometer.NetworkKindOPStack {
+		projector = predict.NewWorstCaseProjector(projector)
 	}
-	var out []services.Predictor
+	var out []gasometer.Predictor
 	for _, name := range cfg.Predictors {
 		switch name {
 		case "node":
-			out = append(out, services.NewNodePredictor())
+			out = append(out, predict.NewNode())
 		case "wallet":
-			out = append(out, services.NewWalletPredictor())
+			out = append(out, predict.NewWallet())
 		case "gasometer":
-			out = append(out, services.NewGasometerPredictor(cfg.Gasometer.TipQuantile, cfg.Gasometer.TipWindow, projector))
+			out = append(out, predict.NewGasometer(cfg.Gasometer.TipQuantile, cfg.Gasometer.TipWindow, projector))
 		default:
-			return nil, fmt.Errorf("%w: unknown predictor %q", entities.ErrInvalidConfig, name)
+			return nil, fmt.Errorf("%w: unknown predictor %q", gasometer.ErrInvalidConfig, name)
 		}
 	}
 	return out, nil
