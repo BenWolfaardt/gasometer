@@ -1,0 +1,38 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose
+    - errorlint
+    - misspell
+    - unconvert
+    - revive
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: false
+          arguments:
+            - disableChecksOnConstants
+            - disableChecksOnVariables
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - revive
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/BenWolfaardt/gasometer

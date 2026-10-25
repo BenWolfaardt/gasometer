@@ -1,0 +1,42 @@
+# Local quality gate, mirrors CI: pre-commit run --all-files
+minimum_pre_commit_version: "3.5.0"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+
+  # Go hooks use the system toolchain so versions match CI, with no mirror drift.
+  - repo: local
+    hooks:
+      - id: gofmt
+        name: gofmt
+        entry: gofmt -l -w
+        language: system
+        types: [go]
+      - id: go-vet
+        name: go vet
+        entry: bash -c 'go vet ./... && go vet -tags integration,live ./...'
+        language: system
+        types: [go]
+        pass_filenames: false
+      - id: golangci-lint
+        name: golangci-lint
+        entry: bash -c 'golangci-lint run ./... && golangci-lint run --build-tags integration,live ./...'
+        language: system
+        types: [go]
+        pass_filenames: false
+      - id: go-mod-tidy
+        name: go mod tidy
+        entry: bash -c 'go mod tidy -diff'
+        language: system
+        files: '(\.go|go\.mod|go\.sum)$'
+        pass_filenames: false
