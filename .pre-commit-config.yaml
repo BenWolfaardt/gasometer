@@ -24,13 +24,13 @@ repos:
         types: [go]
       - id: go-vet
         name: go vet
-        entry: bash -c 'go vet ./... && go vet -tags integration,live ./...'
+        entry: bash -c 'go vet ./... && go vet -tags integration,live,record ./...'
         language: system
         types: [go]
         pass_filenames: false
       - id: golangci-lint
         name: golangci-lint
-        entry: bash -c 'golangci-lint run ./... && golangci-lint run --build-tags integration,live ./...'
+        entry: bash -c 'golangci-lint run ./... && golangci-lint run --build-tags integration,live,record ./...'
         language: system
         types: [go]
         pass_filenames: false

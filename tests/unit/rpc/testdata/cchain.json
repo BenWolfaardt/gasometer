@@ -1,0 +1,169 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "eth_getBlockByNumber",
+      "params": [
+        "latest",
+        false
+      ]
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "baseFeePerGas": "0x9502f900",
+        "blobGasUsed": "0x0",
+        "blockExtraData": "0x",
+        "blockGasCost": "0x0",
+        "difficulty": "0x1",
+        "excessBlobGas": "0x0",
+        "extDataGasUsed": "0x0",
+        "extDataHash": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+        "extraData": "0x000000000000",
+        "gasLimit": "0x4c4b400",
+        "gasUsed": "0x28f2c0",
+        "hash": "0x5db23a0daa2cc0a1b2a5e460488f46747018a14aa6b2ac3c049099d44979b8d2",
+        "logsBloom": "0x000004000000000000000000000040010000000401000000000000000000000000080000000000000002000100000000001000000000000000000200000400000000000100000080000000080000000010000000000400800000000020002000000000000a0000000000012000000800000200000000800000000010000200008000000000000000000000000400000000004a00004400000000000000000000000000000000000000400400000100000000000000000020000002002000000000000002000000800001000000000000000000000000000000000000000060000040810001001000000060000000400000002000000000000000000000000000",
+        "minDelayExcess": "0x68d13a",
+        "minPriceExponent": "0x7ce08b2f603136cd",
+        "miner": "0x0100000000000000000000000000000000000000",
+        "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "nonce": "0x0000000000000000",
+        "number": "0x5df6da2",
+        "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "parentHash": "0x3d0e5e0e5729e45bbed927e96dc88684d28dfb38e101fff7dbf2935a14b893eb",
+        "receiptsRoot": "0x0437e8ea8d8aa612e30fede5bf6cd21c8c42c4f10205ad5896e01727707490ff",
+        "settledExcess": "0x1c0e24012",
+        "settledGasNumerator": "0x646bf8",
+        "settledGasUnix": "0x6ade2864",
+        "settledHeight": "0x5df6d9a",
+        "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+        "size": "0x23ec",
+        "stateRoot": "0x3d7febe2268b36c7291a4d062b3ab9f36ee8e610dc71a670ba8cab55e18b670f",
+        "targetExponent": "0x2c5c860",
+        "timestamp": "0x6ade286a",
+        "timestampMilliseconds": "0x1a173cddf46",
+        "totalDifficulty": "0x0",
+        "transactions": [
+          "0xcef4f328d596205191f3c54ac30a18c1bf7a609f4e0de30f5a8e59a4c7f4ce37",
+          "0xf10fd3105640a2a3357f8ecdfcd9619f9b0fa10242590c78cadd766c704f83b9",
+          "0xb73bd0ecfca297aa94ccbcde783cf9a53eaae69ff0fcbca7581657a4ce3e759c",
+          "0xb46bda93c087b842d085df89f0d843bcaa5da29dc579ea3d0bac790a7fb07f99",
+          "0x56b84b415768f43b6d38f8ec4525255f16570d3dfaddd030e27384e37051500d",
+          "0x21f4a414639487d512c7c501027cbdd68dbad141f14ac8a14e7f1711c4849d56",
+          "0xa49852974b5564c74ff5cddc82c42247b26760269797fbc6e114f438148bfcf4",
+          "0xcf157600133762534228c0f40e292a00e8bd5611a955199a0ff80dd71811a243"
+        ],
+        "transactionsRoot": "0x40f8b1d0ab32ed871beaa0a3302c96db229770983793183d26d3fa5d703b05aa",
+        "uncles": []
+      }
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "eth_feeHistory",
+      "params": [
+        "0x4",
+        "0x5df6da2",
+        [
+          5,
+          50
+        ]
+      ]
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": {
+        "oldestBlock": "0x5df6d9f",
+        "reward": [
+          [
+            "0x96",
+            "0xb189545cc"
+          ],
+          [
+            "0x96",
+            "0x1dcd6500"
+          ],
+          [
+            "0x96",
+            "0x1aad33d"
+          ],
+          [
+            "0xb71b00",
+            "0x68e7780"
+          ]
+        ],
+        "baseFeePerGas": [
+          "0x9502f900",
+          "0x9502f900",
+          "0x9502f900",
+          "0x9502f900",
+          "0x9502f900"
+        ],
+        "gasUsedRatio": [
+          0.0037069125,
+          0.0282870375,
+          0.0057904125,
+          0.0335448
+        ]
+      }
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "eth_maxPriorityFeePerGas"
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": "0x96"
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "eth_call",
+      "params": [
+        {
+          "from": "0x0000000000000000000000000000000000000000",
+          "input": "0x313ce567",
+          "to": "0x0a77230d17318075983913bc2145db16c7366156"
+        },
+        "latest"
+      ]
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000008"
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "eth_call",
+      "params": [
+        {
+          "from": "0x0000000000000000000000000000000000000000",
+          "input": "0xfeaf968c",
+          "to": "0x0a77230d17318075983913bc2145db16c7366156"
+        },
+        "latest"
+      ]
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": "0x00000000000000000000000000000000000000000000000200000000000ce45100000000000000000000000000000000000000000000000000000000350254ff000000000000000000000000000000000000000000000000000000006ade2839000000000000000000000000000000000000000000000000000000006ade283b00000000000000000000000000000000000000000000000200000000000ce451"
+    }
+  }
+]

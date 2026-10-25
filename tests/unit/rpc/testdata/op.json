@@ -1,0 +1,261 @@
+[
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "eth_getBlockByNumber",
+      "params": [
+        "latest",
+        false
+      ]
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "result": {
+        "baseFeePerGas": "0x14c",
+        "blobGasUsed": "0x3c56e0",
+        "difficulty": "0x0",
+        "excessBlobGas": "0x0",
+        "extraData": "0x01000000fa000000020000000000000000",
+        "gasLimit": "0x2625a00",
+        "gasUsed": "0xbcf1d0",
+        "hash": "0x8b4fc012213c84c80ed9ad6133f9bc01aba58574cccc02e4f01aa9efd10a70eb",
+        "logsBloom": "0x000223020009201800890000091000100050010901004083000880800ad0410100181080041000004024080120020020080012020c0000210402025040240009020000128090402800143008000000001040802000240c2002001000020400100228011002082042220053041800098000003200008084051008001800111400104540040302040004188000008105201000482001818188003000100a0005014a1044000408100000500450054004080000508082000100004026184000040001000202020000410001080040200010000c0214400540080001082048846400241028a83220100000401000000820100c0a00000811280000008122160c0010",
+        "miner": "0x4200000000000000000000000000000000000011",
+        "mixHash": "0xe2721a8ac1ab38497bf3452a36fb2fbe437bd17826fee895b1ec9f1cd7db703e",
+        "nonce": "0x0000000000000000",
+        "number": "0x9752757",
+        "parentBeaconBlockRoot": "0x51ea6293999a0190951cdd89ee4f259b7f1f6aefa7d66552becc685167adce65",
+        "parentHash": "0x8e4bd1461b58c1bf24455f2bd49225131a67951dc42cabbea55624f949fddce1",
+        "receiptsRoot": "0xe5f35632fa05db23513d36dcb8a3b60bc47029e4cf84a95f6494aded748f7f88",
+        "requestsHash": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+        "size": "0x4e5c",
+        "stateRoot": "0x8010e3015a63896df081836bd93bf70f0eb00b9bc2241d7598d96288b31d6546",
+        "timestamp": "0x6ade2867",
+        "transactions": [
+          "0x822fc02f7255e94be51b1aa0fd95f0fc74b9502e06cfa7580b6ca9e0bcce6213",
+          "0xb91bb81cd9c0d27655755067df18d6e8f4431f98bc6dd34da503ee036838b665",
+          "0xb0db8256e27bf38db82e4616a5d2879704f1d2fa36ca0ff0a8557862e75d135e",
+          "0xf227a1f150fb2bcac947336aed77d814d8baf67caa29ec67dc328ba8c9036ad6",
+          "0xe2536cac85d07144be11c4397d8148945d4e9e42811d0f708eb29b5b9c37425c",
+          "0xc8447e8535c38ec3143a8fa16124d8b8ed42e79c78e0194346a214a526c18885",
+          "0xd5f3074989a13f5bc7c7d4957248a9434331bc270f3c1f5f0f9fbe6780a2728f",
+          "0x6cf66184d6c9340b1e41a3c272a7c9e5b85d0d5e58346b3666cacb26bc770bfc",
+          "0xead3d70bbfa7553d9c938c60403a4badc9b6744b99cace48e04cad7c2383c0b0",
+          "0x1d36fc617cdca265159c053e62fd598bebb164bf75659656caad2ffd037bea3e",
+          "0xb83a7cd35c2e60a96a5f67f83f827b6edc2c86f042a9bbcace9253fb82f2bc82",
+          "0xebbb88cf893e4bc3a579d13ba995a48427190f3294d71c68635f28d00a776c10",
+          "0x35486d7298a2228198f756e6dbb449aff9ccddd47da5cd336dd88dee04491ce8",
+          "0x4179af9ebf47df4060fdc215144cd93a242e7a1bc454682f87d95faedd569bba",
+          "0xfad246435e89eb260fd1a2e703a051278c44baa65bc0e460226ae3abbfdcf03d",
+          "0x338e16ffb9f199f84f2d486a9e1e47e4f1e5f7da9644f06a30238a11e84faf0b",
+          "0x27da32bd974df31ea20ef08f48c01076fe539993d13f64973c1f78689d2f2479",
+          "0x6f30c562a45ebcbe56a26e8269c384c31802406fcda2475c30da4be8b84fa3ed",
+          "0x35075d99b3122c088f087f2d9f29a4643496a3b64cd0a46cecc476fa12e7087d",
+          "0xdfd7413e13f1fd238619077f51f6a4e7856015a1ef7a9a341c0676a8fb631b14",
+          "0x18ed303c0f39b973c42168d832c117ac4beb9bbac4b0ce3c9825bc9e5dbae25c",
+          "0xb4e515ea198586c865297ab60d7f06df451bfb81e1b13323bf649dfb437e2db0",
+          "0x492b3b06ec07de238f72ce1593412a258d43e900db673bf104ec5fb1ab2dd9b5",
+          "0x1ef3822a8c32ae46b6e3c09dfd49256b6407cec2bf19e970c74ff3e432a90824",
+          "0x06dbd09e492debf2c6d0afb3edc35f13fda21bb086eb859796ed6f8f5eb907f1",
+          "0x36a74a83600cda5756e309534011eee70f98d54eb001c68c3246bc646b516403",
+          "0x7e2e659de19867b9eb9304d0d5c10a02be260c8ed83e2648d9374ec84337873a",
+          "0x602b8a83dfb0622745f0759f916329fabec1822c0562ae7c5544ad54b94d58a0",
+          "0x3f6fc3936823db117263c550c1623852218d3772305bf2f2c6de30a5dccbb171",
+          "0x0a1ab0d132aa094eb78491c5b0d9f57ace0fc83f3aa91f14c977bd3e30c352d3",
+          "0x342b7381a65300bd6d3add150371803823a4054006b3f6d9897197c79017a797",
+          "0xe07ec9f75f3b00679f3baace200cad1bb71012ebb36660e8cf9b5d6c266f0627",
+          "0xf8406524048376598b7a60692f8a1ba86403234327101b4b363bb6c8d7908ea0",
+          "0x8a33f0f042df7a02baf1be425a6230be8f00d132d8f42047416b0ed2612ba52a",
+          "0x9bcbf5aae622dd7b2b80ee24c2f46f4db56692612f1d509700b93d310fc387ea",
+          "0x8ed0c10bc152b75a4fad2b3b78462981a36b3c140bc02fc776f91f11001a6465",
+          "0xd0337d60fa9077699f453d189ec32bf8cc135dbda7dab609785785cdd6d51b34",
+          "0x822c34864fcd2d1f6a1c429c8e0963dabc18ec2f9e8ea1cba36858637baa83d6",
+          "0x1c1f8ef055640b38724324b7afecb518bf01675a2dffec32a88fe83de04f08f2",
+          "0x4b3ff2bbff53beaa102f38f77d811f081a5546671ac6e06a73b6ba1a5c103ebe",
+          "0xb40fbcc2b511fdfcd8f2a38ce847902233f97077e287bb3138717250839881d9",
+          "0x7758b1678603ef7a1a97d83019a795dd6acfdec216ef4cf98be2b3980c9ace21",
+          "0xc6cf08b1d2d8583cadd3c4031df7d26aa353a5d9f77783eaa9a093a0c1030e4f",
+          "0x5ea52cc233d073f5ab1b025316b985edb1ccfae2a0ac4235b71e98f0c53871ce",
+          "0x570e9ec5bf59aef523fd6c6ebaddbb0dbb2f823b27f6487cf5ee42362084e9a9",
+          "0x16b4f4fa700734dd8cacf76142092bd9c76ddf74550cf3a2923445cd8c2dfb83",
+          "0x59ae61d4e1f758f878c02e76de23fcb9d54e3f05eb27853e4b9616bf5ef667ab",
+          "0x3f0ecb5d120e41058c081cf11cc39781ed810a297e4a50c21425b07136fde644",
+          "0xe8687f1bb1d31a973204f69b284fb316670585e564dafd2489adc0554ac3c7a3",
+          "0x511f65981e87394942da906f61c899d638c1dd8a37c5e1f4fc7d8b90854bd903",
+          "0x4abf20f959da24d31d3eb97cda1a9e8538b525a01d328a7c03d9bf4a376a7d26",
+          "0x32f403cdf59fc90e09043e7ae313a637e30654810bfe2704129fa5e3118b75b4",
+          "0xbff63eea5f3435e270a70a40ce586138badb3abe21a7047aea394b614546ed7f",
+          "0x8289a38012563846987c4a930e010360a67574035702e2c3e8e3a60553af1aa4",
+          "0x423dece32f714541585d6b220f86176800dff3284f980a258ce88c4caf9dfe4f",
+          "0xa05ce03b528d386a448748c1d430e18c954273801f40a0e404952dd9633c51f3",
+          "0x7fda684da265d4125810ba1e56b9d6b031eb823cf95ea92dc8a553cd6e50768f"
+        ],
+        "transactionsRoot": "0xb56b825f72fd9975e30efb878181a7d56f970b08330401ab8f53f0251035fbcd",
+        "uncles": [],
+        "withdrawals": [],
+        "withdrawalsRoot": "0xe08eca71aabd02d45c9a43baf8338ea75cfd6260e89f2f7e87ad86cc603ebd22"
+      },
+      "id": 1
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "eth_feeHistory",
+      "params": [
+        "0x4",
+        "0x9752757",
+        [
+          5,
+          50
+        ]
+      ]
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "result": {
+        "baseFeePerBlobGas": [
+          "0x1",
+          "0x1",
+          "0x1",
+          "0x1",
+          "0x1"
+        ],
+        "baseFeePerGas": [
+          "0x14c",
+          "0x14c",
+          "0x14c",
+          "0x14c",
+          "0x14c"
+        ],
+        "blobGasUsedRatio": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gasUsedRatio": [
+          0.183753425,
+          0.303883975,
+          0.2866409,
+          0.3095668
+        ],
+        "oldestBlock": "0x9752754",
+        "reward": [
+          [
+            "0x0",
+            "0x3c"
+          ],
+          [
+            "0x0",
+            "0xf4240"
+          ],
+          [
+            "0x0",
+            "0x4c4b40"
+          ],
+          [
+            "0x0",
+            "0x4c4b40"
+          ]
+        ]
+      },
+      "id": 2
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "eth_maxPriorityFeePerGas"
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "result": "0xf4240",
+      "id": 3
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "eth_call",
+      "params": [
+        {
+          "from": "0x0000000000000000000000000000000000000000",
+          "input": "0x313ce567",
+          "to": "0x13e3ee699d1909e989722e753853ae30b17e08c5"
+        },
+        "latest"
+      ]
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000008",
+      "id": 4
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "eth_call",
+      "params": [
+        {
+          "from": "0x0000000000000000000000000000000000000000",
+          "input": "0xfeaf968c",
+          "to": "0x13e3ee699d1909e989722e753853ae30b17e08c5"
+        },
+        "latest"
+      ]
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "result": "0x0000000000000000000000000000000000000000000000020000000000004be8000000000000000000000000000000000000000000000000000000368a3f2f8d000000000000000000000000000000000000000000000000000000006ade2474000000000000000000000000000000000000000000000000000000006ade24770000000000000000000000000000000000000000000000020000000000004be8",
+      "id": 5
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "method": "eth_call",
+      "params": [
+        {
+          "from": "0x0000000000000000000000000000000000000000",
+          "input": "0x49948e0e0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003402f20a8204d2830f4240843b9aca00825208945a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c872386f26fc1000080c0808080000000000000000000000000",
+          "to": "0x420000000000000000000000000000000000000f"
+        },
+        "latest"
+      ]
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "result": "0x0000000000000000000000000000000000000000000000000000000035e510fe",
+      "id": 6
+    }
+  },
+  {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "method": "eth_call",
+      "params": [
+        {
+          "from": "0x0000000000000000000000000000000000000000",
+          "input": "0x49948e0e0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000007302f8700a8204d2830f4240843b9aca0082fde8945a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c80b844a9059cbb0000000000000000000000008f2a1e6b9c7d4e3f5a0b1c2d3e4f5a6b7c8d9e0f0000000000000000000000000000000000000000000000000000000059682f00c080808000000000000000000000000000",
+          "to": "0x420000000000000000000000000000000000000f"
+        },
+        "latest"
+      ]
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "result": "0x0000000000000000000000000000000000000000000000000000000035e510fe",
+      "id": 7
+    }
+  }
+]

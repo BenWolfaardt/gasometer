@@ -23,12 +23,12 @@ jobs:
       - name: go mod tidy
         run: go mod tidy -diff
       - name: vet
-        run: go vet ./... && go vet -tags integration,live ./...
+        run: go vet ./... && go vet -tags integration,live,record ./...
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.15.0
-          args: --build-tags integration,live
+          args: --build-tags integration,live,record
       - name: unit
         run: make test
       - name: race

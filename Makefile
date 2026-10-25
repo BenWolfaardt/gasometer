@@ -1,7 +1,8 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
 
-CONTAINER ?= $(shell command -v podman 2>/dev/null || command -v docker 2>/dev/null)
+# podman when its machine is up, otherwise docker (Docker Desktop, OrbStack, Colima).
+CONTAINER ?= $(shell podman info >/dev/null 2>&1 && echo podman || echo docker)
 COMPOSE ?= $(CONTAINER) compose
 COMPOSE_FILE := deploy/docker-compose.yml
 
@@ -67,6 +68,10 @@ integration: ## Run integration tests against GASOMETER_TEST_DATABASE_URL (see t
 .PHONY: live
 live: ## Replay recent Base and OP headers against the fee model (needs network)
 	go test -tags live -count=1 -v ./tests/integration/...
+
+.PHONY: record-fixtures
+record-fixtures: ## Re-record the RPC fixtures tests/unit/rpc replays (needs network)
+	go test -tags record -count=1 -run TestRecordFixtures ./tests/integration/...
 
 .PHONY: migrate
 migrate: ## Apply migrations to DATABASE_URL
