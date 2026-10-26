@@ -54,7 +54,7 @@ func (f *Forecaster) Forecast(ctx context.Context, obs Observation) (int, error)
 	if err != nil {
 		return 0, err
 	}
-	history, err := f.history(ctx, obs.Snapshot.AtBlock, avg)
+	history, err := f.history(ctx, obs.Snapshot.AtBlock, avg, horizons)
 	if err != nil {
 		return 0, err
 	}
@@ -94,13 +94,18 @@ func (f *Forecaster) Forecast(ctx context.Context, obs Observation) (int, error)
 	return len(made), nil
 }
 
-// history loads the growth window, or the tip window if longer, ending at atBlock.
-func (f *Forecaster) history(ctx context.Context, atBlock uint64, avg time.Duration) ([]gasometer.BlockFee, error) {
+// history loads the growth window, or the tip windows of the longest horizon if longer, ending at atBlock.
+func (f *Forecaster) history(ctx context.Context, atBlock uint64, avg time.Duration, horizons []gasometer.Horizon) (
+	[]gasometer.BlockFee, error) {
 	growth, err := BlocksIn(f.params.GrowthWindow, avg)
 	if err != nil {
 		return nil, err
 	}
-	span := uint64(max(growth, f.params.TipWindow))
+	longest := 1
+	for _, h := range horizons {
+		longest = max(longest, h.Blocks)
+	}
+	span := uint64(max(growth, f.params.TipWindow+longest-1))
 	blocks, err := f.deps.Blocks.Range(ctx, f.network, blocksBack(atBlock, span), atBlock)
 	if err != nil {
 		return nil, fmt.Errorf("load history: %w", err)

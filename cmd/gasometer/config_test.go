@@ -57,7 +57,7 @@ func TestRepositoryConfigLoads(t *testing.T) {
 	}
 	c := cfg.Networks[2]
 	if c.Name != "cchain" || gasometer.NetworkKind(c.Kind) != gasometer.NetworkKindAvalancheSAE || c.HistoryDepth != 25_000 ||
-		len(c.RPC.URLs) != 2 || c.PriceMaxAge != time.Hour {
+		len(c.RPC.URLs) != 2 || c.PriceMaxAge != time.Hour || c.RequiredTipPercentile != 0 || cfg.Networks[0].RequiredTipPercentile != 5 {
 		t.Fatalf("cchain %+v", c)
 	}
 	if cfg.Gasometer.GrowthWindow != time.Hour || len(cfg.ReferenceTxs) != 2 || cfg.ReferenceTxs[1].DataSize != 68 {
@@ -76,8 +76,8 @@ func TestDefaults(t *testing.T) {
 		n.RPC.Timeout != 10*time.Second || n.RPC.MaxRetries != 3 || n.RPC.InitialBackoff != 500*time.Millisecond {
 		t.Fatalf("network defaults %+v", n)
 	}
-	if cfg.Schedule.BlockRetention != 48*time.Hour || cfg.Scoring.ExpiryFactor != 10 ||
-		len(cfg.Scoring.Horizons) != 3 || len(cfg.Predictors) != 3 || cfg.Gasometer.TipWindow != 30 ||
+	if cfg.Schedule.BlockRetention != 30*24*time.Hour || cfg.Scoring.ExpiryFactor != 10 ||
+		len(cfg.Scoring.Horizons) != 3 || len(cfg.Predictors) != 4 || cfg.Gasometer.TipWindow != 1_800 ||
 		cfg.Log.Format != "json" || cfg.HTTP.ListenAddress != ":9090" {
 		t.Fatalf("defaults %+v", cfg)
 	}

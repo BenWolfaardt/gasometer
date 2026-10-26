@@ -1,0 +1,18 @@
+// Scrape at the poll interval: gasometer's metrics change once a minute, and Grafana Cloud bills per data point.
+prometheus.scrape "gasometer" {
+	targets         = [{"__address__" = "gasometer:9090"}]
+	job_name        = "gasometer"
+	scrape_interval = "60s"
+	forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+	endpoint {
+		url = sys.env("GRAFANA_CLOUD_PROMETHEUS_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_CLOUD_PROMETHEUS_USER")
+			password = sys.env("GRAFANA_CLOUD_API_TOKEN")
+		}
+	}
+}

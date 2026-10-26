@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/ava-labs/libevm/rpc"
@@ -44,8 +45,8 @@ var ErrNoURLs = errors.New("no rpc urls")
 // Call runs one request against an endpoint's client.
 type Call func(ctx context.Context, c *rpc.Client) error
 
-// Client sends requests to a network's endpoints in order, rate limited, retrying 429, 5xx and transport errors
-// with exponential backoff before falling back to the next endpoint.
+// Client sends requests to a network's endpoints in order, rate limited, retrying 429, 5xx, transport errors and
+// lagging backends with exponential backoff before falling back to the next endpoint.
 type Client struct {
 	network   string
 	endpoints []endpoint
@@ -147,11 +148,20 @@ func outcome(err error) string {
 	}
 }
 
-// retryable is true for HTTP 429 and 5xx, transport failures and per-attempt timeouts.
+// notAcceptedYet is how a C-Chain node refuses a block it has not accepted. Behind a load balancer, one backend can
+// report a head that the backend serving the next request has not reached; it does within a block or two.
+const notAcceptedYet = "not accepted yet"
+
+// retryable is true for HTTP 429 and 5xx, transport failures, per-attempt timeouts and a backend behind head.
 func retryable(err error) bool {
 	var httpErr rpc.HTTPError
 	if errors.As(err, &httpErr) {
 		return httpErr.StatusCode == http.StatusTooManyRequests || httpErr.StatusCode >= 500
+	}
+	// The code is the generic -32000, so only the message identifies it.
+	var rpcErr rpc.Error
+	if errors.As(err, &rpcErr) && strings.Contains(rpcErr.Error(), notAcceptedYet) {
+		return true
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {

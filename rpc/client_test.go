@@ -105,6 +105,24 @@ func TestClientDoesNotRetryJSONRPCErrors(t *testing.T) {
 	}
 }
 
+func TestClientRetriesBackendBehindHead(t *testing.T) {
+	lagging := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"block not found: not accepted yet: block 98556508"}}`))
+	}))
+	defer lagging.Close()
+	_, up := newReplayServer(t, "base")
+	observer := &recordingObserver{}
+	if _, err := newFeeSource(newClient(t, observer, lagging.URL, up.URL)).NodeTip(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got := observer.outcomes()
+	if len(got) != 4 || got[0].outcome != rpc.OutcomeRetryable || got[2].endpoint != host(t, lagging.URL) ||
+		got[3].endpoint != host(t, up.URL) || got[3].outcome != rpc.OutcomeOK {
+		t.Fatalf("observations %+v", got)
+	}
+}
+
 func TestClientStopsOnCancel(t *testing.T) {
 	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "down", http.StatusServiceUnavailable)

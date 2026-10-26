@@ -1,0 +1,33 @@
+{
+  "uid": "gasometer-stalled",
+  "title": "gasometer stopped polling",
+  "ruleGroup": "gasometer",
+  "folderUID": "gasometer",
+  "condition": "C",
+  "for": "5m",
+  "noDataState": "Alerting",
+  "execErrState": "Alerting",
+  "annotations": {
+    "summary": "No completed poll on {{ $labels.network }} for over 3 minutes, or no gasometer metrics arriving at all. The dashboard is missing data from this point."
+  },
+  "labels": {},
+  "data": [
+    {
+      "refId": "A",
+      "datasourceUid": "${DATASOURCE_UID}",
+      "relativeTimeRange": {"from": 600, "to": 0},
+      "model": {"refId": "A", "expr": "time() - max by (network) (gasometer_last_poll_timestamp_seconds)", "instant": true}
+    },
+    {
+      "refId": "C",
+      "datasourceUid": "__expr__",
+      "relativeTimeRange": {"from": 0, "to": 0},
+      "model": {
+        "refId": "C",
+        "type": "threshold",
+        "expression": "A",
+        "conditions": [{"evaluator": {"type": "gt", "params": [180]}}]
+      }
+    }
+  ]
+}

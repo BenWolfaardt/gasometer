@@ -189,12 +189,12 @@ func TestOperationalMetrics(t *testing.T) {
 // TestSeriesBudget fills every label combination the default config can produce and keeps the total well under
 // Grafana Cloud's 10,000-series free tier.
 func TestSeriesBudget(t *testing.T) {
-	const budget = 7_000
+	const budget = 9_000
 	r, reg := newRecorder(t)
 	networks := []string{"base", "op", "cchain"}
 	methods := []string{"eth_feeHistory", "eth_getBlockByNumber", "eth_maxPriorityFeePerGas", "eth_call", "eth_blockNumber"}
 	for _, n := range networks {
-		for _, p := range []string{"node", "wallet", "gasometer"} {
+		for _, p := range []string{"node", "wallet", "market", "gasometer"} {
 			for _, h := range []int{2, 30, 120} {
 				for _, outcome := range []string{gasometer.OutcomeMissed, gasometer.OutcomeExpired, gasometer.OutcomeUnresolvable} {
 					r.Settled(gasometer.Settlement{Network: n, Predictor: p, HorizonSeconds: h, Outcome: outcome})

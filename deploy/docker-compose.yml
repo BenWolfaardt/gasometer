@@ -1,0 +1,46 @@
+name: gasometer
+
+services:
+  postgres:
+    image: docker.io/library/postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gasometer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: gasometer
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "gasometer"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  gasometer:
+    build:
+      context: ..
+      dockerfile: Containerfile
+    image: localhost/gasometer:dev
+    restart: unless-stopped
+    environment:
+      GASOMETER_DATABASE_URL: postgres://gasometer:${POSTGRES_PASSWORD}@postgres:5432/gasometer?sslmode=disable
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  alloy:
+    image: docker.io/grafana/alloy:v1.20.1
+    restart: unless-stopped
+    command: ["run", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
+    env_file: .env
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy:/var/lib/alloy/data
+    depends_on:
+      - gasometer
+
+volumes:
+  postgres:
+  alloy:

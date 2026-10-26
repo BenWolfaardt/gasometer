@@ -1,0 +1,7 @@
+.git
+bin
+deploy
+gasometer
+*.test
+*.out
+coverage.*

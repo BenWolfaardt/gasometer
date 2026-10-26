@@ -77,15 +77,15 @@ func buildFlagSet() *pflag.FlagSet {
 	fs.String(databaseURLKey, "", "Postgres connection URL")
 
 	fs.Duration(pollIntervalKey, 60*time.Second, "Time between polls of each network")
-	fs.Duration(blockRetentionKey, 48*time.Hour, "How long block rows are kept")
+	fs.Duration(blockRetentionKey, 30*24*time.Hour, "How long block rows are kept; snapshots and predictions are kept indefinitely")
 
 	fs.IntSlice(horizonsKey, []int{2, 30, 120}, "Prediction horizons in seconds")
 	fs.Int(expiryFactorKey, 10, "Horizons a prediction waits for the network before it expires")
 
-	fs.StringSlice(predictorsKey, []string{"node", "wallet", "gasometer"}, "Predictors to run")
+	fs.StringSlice(predictorsKey, []string{"node", "wallet", "market", "gasometer"}, "Predictors to run")
 
-	fs.Float64(gasometerTipQuantileKey, 0.9, "Quantile of recent required tips the gasometer predictor bids")
-	fs.Int(gasometerTipWindowKey, 30, "Blocks of required tips the gasometer predictor considers")
+	fs.Float64(gasometerTipQuantileKey, 0.99, "Quantile of recent window-cheapest required tips the gasometer predictor bids")
+	fs.Int(gasometerTipWindowKey, 1800, "Horizon-long windows of required tips the gasometer predictor considers, one per recent block")
 	fs.Float64(gasometerGrowthQuantileKey, 0.99, "Quantile of base fee growth behind the gasometer predictor's max fee")
 	fs.Duration(gasometerGrowthWindowKey, time.Hour, "History of base fee growth the gasometer predictor considers")
 	return fs
@@ -264,7 +264,7 @@ var (
 )
 
 // Predictor names the config accepts.
-var knownPredictors = []string{"node", "wallet", "gasometer"}
+var knownPredictors = []string{"node", "wallet", "market", "gasometer"}
 
 var (
 	errInvalidLogLevel        = invalid("log level must be trace, debug, info, warn or error")
@@ -278,7 +278,7 @@ var (
 	errInvalidHorizon         = invalid("horizons must be positive and unique")
 	errInvalidExpiryFactor    = invalid("expiry factor must be at least 1")
 	errNoPredictors           = invalid("at least one predictor is required")
-	errUnknownPredictor       = invalid("predictor must be node, wallet or gasometer, once each")
+	errUnknownPredictor       = invalid("predictor must be node, wallet, market or gasometer, once each")
 	errInvalidQuantile        = invalid("quantiles must be in (0, 1]")
 	errInvalidTipWindow       = invalid("tip window must be at least 1 block")
 	errInvalidGrowthWindow    = invalid("growth window must be positive")

@@ -17,7 +17,7 @@ const namespace = "gasometer"
 // Bucket sets sized for Grafana Cloud's 10,000-series free tier: one bucket per decade.
 var (
 	usdBuckets      = prometheus.ExponentialBuckets(1e-9, 10, 11)
-	ratioBuckets    = prometheus.ExponentialBuckets(0.01, 10, 6)
+	ratioBuckets    = prometheus.ExponentialBuckets(0.01, 10, 8) // to 100,000x: node tips on OP overpay by about 3,000x
 	errorBuckets    = prometheus.ExponentialBuckets(0.001, 10, 5)
 	durationBuckets = []float64{0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10}
 )

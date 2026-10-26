@@ -74,6 +74,28 @@ func TestForecaster(t *testing.T) {
 	}
 }
 
+func TestForecasterLoadsTipWindowsOfLongestHorizon(t *testing.T) {
+	blocks := mock.NewBlockStore()
+	blocks.AvgTime["base"] = 2 * time.Second
+	storeBlocks(t, blocks, 1, 5_000)
+	params := gasometerParams
+	params.TipWindow = 1_800
+	recorded := &recordingPredictor{Predictor: predict.NewGasometer(0.99, 1_800, predict.NewEmpiricalProjector(0.99))}
+	uc := poll.NewForecaster("base", []int{2, 30, 120}, params, poll.ForecasterDeps{
+		Predictors:  []gasometer.Predictor{recorded},
+		Blocks:      blocks,
+		Predictions: &mock.PredictionStore{},
+		Log:         nopLog,
+	})
+	if n, err := uc.Forecast(t.Context(), observation(5_000)); err != nil || n != 3 {
+		t.Fatalf("made %d: %v", n, err)
+	}
+	// 1,800 windows of the 60-block horizon reach 1,859 blocks back, past the hour of growth history.
+	if h := recorded.inputs[0].History; len(h) != 1_859 || h[0].Number != 3_142 {
+		t.Fatalf("history %d blocks from %d", len(h), h[0].Number)
+	}
+}
+
 func TestForecasterWaitsForBlockTime(t *testing.T) {
 	predictions := &mock.PredictionStore{}
 	n, err := poll.NewForecaster("base", []int{2}, gasometerParams, poll.ForecasterDeps{

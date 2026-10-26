@@ -180,6 +180,8 @@ func buildPredictors(cfg fileConfig, network gasometer.Network) ([]gasometer.Pre
 			out = append(out, predict.NewNode())
 		case "wallet":
 			out = append(out, predict.NewWallet())
+		case "market":
+			out = append(out, predict.NewMarket())
 		case "gasometer":
 			out = append(out, predict.NewGasometer(cfg.Gasometer.TipQuantile, cfg.Gasometer.TipWindow, projector))
 		default:

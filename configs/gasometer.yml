@@ -7,15 +7,18 @@ http-listen-address: ":9090"
 http-shutdown-timeout: 10s
 
 poll-interval: 60s
-block-retention: 48h
+# 30 days of blocks, about 650 MB, so backtests have a month to replay. Snapshots and predictions are kept indefinitely.
+block-retention: 720h
 
 horizons: [2, 30, 120]
 expiry-factor: 10
 
-predictors: [node, wallet, gasometer]
+predictors: [node, wallet, market, gasometer]
 
-gasometer-tip-quantile: 0.9
-gasometer-tip-window: 30
+# Bid the 0.99 quantile of the cheapest required tip in each horizon-long window ending at the last 1,800 blocks.
+# Backtested on 10 hours of all three networks: at least 98.7% inclusion at every horizon.
+gasometer-tip-quantile: 0.99
+gasometer-tip-window: 1800
 gasometer-growth-quantile: 0.99
 gasometer-growth-window: 1h
 
@@ -58,3 +61,6 @@ networks:
     price-max-age: 1h
     # The node refuses eth_feeHistory beyond 25,000 blocks behind head.
     history-depth: 25000
+    # Blocks carry few transactions and are far from full, so the 5th percentile by gas reports what those few
+    # happened to tip. The cheapest included tip is the tighter bound, and C-Chain has no zero-tip system transaction.
+    required-tip-percentile: 0
