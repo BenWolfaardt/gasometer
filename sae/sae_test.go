@@ -4,8 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"math/rand/v2"
 	"os"
 	"testing"
+
+	"github.com/ava-labs/avalanchego/vms/components/gas"
+	"github.com/ava-labs/avalanchego/vms/saevm/cchain/dynamic"
+	"github.com/ava-labs/avalanchego/vms/saevm/gastime"
+	"github.com/ava-labs/avalanchego/vms/saevm/worstcase"
 
 	"github.com/BenWolfaardt/gasometer"
 	"github.com/BenWolfaardt/gasometer/sae"
@@ -245,4 +251,124 @@ func cloneSettlingItself(w []gasometer.SAEBlock) []gasometer.SAEBlock {
 	head := cloneBlocks(w[len(w)-1:])
 	head[0].Settled.Height = head[0].Number
 	return head
+}
+
+// futureBlock is what a step of the walk sets for the next block: its time and config, and the gas it charges.
+type futureBlock struct {
+	advanceMs        uint64
+	targetExponent   dynamic.TargetExponent
+	minPriceExponent dynamic.PriceExponent
+	gas              func(rate gas.Gas) gas.Gas
+}
+
+// extend appends blocks n+1 to n+1+k to w, the first k charging gas and the last only advancing time, so the result's
+// BaseFee is block n+1+k's base fee. step chooses each block from its parent's config.
+func extend(w []gasometer.SAEBlock, k int, step func(parent gasometer.SAEBlock) futureBlock) []gasometer.SAEBlock {
+	out := cloneBlocks(w)
+	head := out[len(out)-1]
+	for j := 0; j <= k; j++ {
+		parent := out[len(out)-1]
+		f := step(parent)
+		b := gasometer.SAEBlock{
+			Number:           parent.Number + 1,
+			TimeMilliseconds: parent.TimeMilliseconds + f.advanceMs,
+			TargetExponent:   uint64(f.targetExponent),
+			MinPriceExponent: uint64(f.minPriceExponent),
+			Settled:          head.Settled,
+		}
+		b.Time = b.TimeMilliseconds / 1000
+		if j < k {
+			rate := gastime.SafeRateOfTarget(dynamic.TargetExponent(parent.TargetExponent).Target())
+			b.TxGasLimit = uint64(f.gas(rate))
+		}
+		out = append(out, b)
+	}
+	return out
+}
+
+func fullBlock(rate gas.Gas) gas.Gas { return worstcase.SafeMaxBlockSize(rate) }
+
+// TestMaxBaseFeeAfterTargetWalks is the adversarial case: full blocks while the target walks at fixed rates up to
+// ACP-176's cap. The fee's exponent rises by the same 10/87 per block at any target, so only rounding separates these
+// futures from the cap: at the maximum fall a fixed config is exceeded at k=1, and slower walks exceed the cap's own
+// walk without its slack.
+func TestMaxBaseFeeAfterTargetWalks(t *testing.T) {
+	w := aboveFloor(t, loadFixture(t).Blocks)
+	for _, rate := range []int64{-1 << 15, -1 << 14, -1000, -1, 1 << 15} {
+		for _, k := range []int{1, 2, 30, 120} {
+			future := extend(w, k, func(parent gasometer.SAEBlock) futureBlock {
+				desired := dynamic.TargetExponent(max(0, int64(parent.TargetExponent)+rate)) //nolint:gosec // exponents fit
+				return futureBlock{
+					targetExponent:   dynamic.TargetExponent(parent.TargetExponent).Toward(&desired),
+					minPriceExponent: dynamic.PriceExponent(parent.MinPriceExponent),
+					gas:              fullBlock,
+				}
+			})
+			realised, err := sae.BaseFee(future)
+			if err != nil {
+				t.Fatal(err)
+			}
+			bound, err := sae.MaxBaseFeeAfter(w, k)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if realised.Cmp(bound) > 0 {
+				t.Errorf("target %+d per block, k=%d: block n+1+k's base fee %s above the cap %s", rate, k, realised, bound)
+			}
+		}
+	}
+}
+
+// TestMaxBaseFeeAfterBoundsRandomFutures checks the cap against random futures: settled clocks, config walks within
+// Toward's per-block caps in either direction, block gas up to the limit and time advancing.
+func TestMaxBaseFeeAfterBoundsRandomFutures(t *testing.T) {
+	blocks := loadFixture(t).Blocks
+	rng := rand.New(rand.NewPCG(1, 2)) //nolint:gosec // reproducible test input
+	const targetStep, priceStep = 1 << 15, 288_230_376_151_711_744 / 3_600
+	for range 300 {
+		w, ok := window(blocks, len(blocks)/2+rng.IntN(len(blocks)/2))
+		if !ok {
+			continue
+		}
+		w = cloneBlocks(w)
+		settled := *w[len(w)-1].Settled
+		settled.Excess = settled.Excess / 2 * uint64(1+rng.IntN(4)) //nolint:gosec // IntN is non-negative
+		w[len(w)-1].Settled = &settled
+		k := rng.IntN(131)
+		future := extend(w, k, func(parent gasometer.SAEBlock) futureBlock {
+			target := dynamic.TargetExponent(parent.TargetExponent)
+			desiredTarget := dynamic.TargetExponent(uint64(target) + uint64(rng.IntN(4*targetStep))) //nolint:gosec
+			if desiredTarget >= 2*targetStep {
+				desiredTarget -= 2 * targetStep
+			}
+			price := dynamic.PriceExponent(parent.MinPriceExponent)
+			desiredPrice := dynamic.PriceExponent(uint64(price) + uint64(rng.Int64N(2*priceStep))) //nolint:gosec
+			if rng.IntN(2) == 0 && uint64(price) >= priceStep {
+				desiredPrice = price - priceStep
+			}
+			full := rng.IntN(2) == 0
+			return futureBlock{
+				advanceMs:        uint64(rng.IntN(3000)), //nolint:gosec // IntN is non-negative
+				targetExponent:   target.Toward(&desiredTarget),
+				minPriceExponent: price.Toward(&desiredPrice),
+				gas: func(rate gas.Gas) gas.Gas {
+					if full {
+						return fullBlock(rate)
+					}
+					return gas.Gas(rng.Uint64N(uint64(fullBlock(rate)) + 1))
+				},
+			}
+		})
+		realised, err := sae.BaseFee(future)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bound, err := sae.MaxBaseFeeAfter(w, k)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if realised.Cmp(bound) > 0 {
+			t.Fatalf("block %d, k=%d: block n+1+k's base fee %s above the cap %s", w[len(w)-1].Number, k, realised, bound)
+		}
+	}
 }

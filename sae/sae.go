@@ -5,6 +5,7 @@ package sae
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -39,8 +40,12 @@ func NextBaseFee(blocks []gasometer.SAEBlock) (*big.Int, error) {
 	return price(clock), nil
 }
 
-// MaxBaseFeeAfter is the base fee after k full blocks following the next one, at the last block's gas config. A full
-// block is Tau·Lambda seconds of gas, so the clock runs ahead of any minimum block delay and time never lowers it.
+// MaxBaseFeeAfter bounds the base fee after k blocks following the next one. Each block is full, Tau·Lambda seconds
+// of gas, so the clock runs ahead of any minimum block delay and time never lowers it, and each block's config is the
+// worst its parent's can step to under cchain/dynamic's Toward caps: the minimum price up, the target down. A full
+// block raises the fee's exponent by 10/87 at any target, the minimum price rises at most 2^(1/3600) per block so it
+// never catches the clock, and gastime.go scaleExcess rounds a target change up by at most one unit of excess; the
+// factor 1 + k·10⁻⁶ covers that rounding, which is below 1.2·10⁻⁸ per block.
 func MaxBaseFeeAfter(blocks []gasometer.SAEBlock, k int) (*big.Int, error) {
 	if k < 0 {
 		return nil, fmt.Errorf("%w: %d blocks", gasometer.ErrInvalidHorizon, k)
@@ -49,13 +54,27 @@ func MaxBaseFeeAfter(blocks []gasometer.SAEBlock, k int) (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	target, cfg := gasConfig(blocks[len(blocks)-1])
+	b := blocks[len(blocks)-1]
 	for range k {
+		b.TargetExponent = uint64(dynamic.TargetExponent(b.TargetExponent).Toward(new(dynamic.TargetExponent)))
+		b.MinPriceExponent = uint64(dynamic.PriceExponent(b.MinPriceExponent).Toward(new(dynamic.PriceExponent(math.MaxUint64))))
+		target, cfg := gasConfig(b)
 		if err := clock.AfterBlock(worstcase.SafeMaxBlockSize(clock.Rate()), target, cfg); err != nil {
 			return nil, fmt.Errorf("full block: %w", err)
 		}
 	}
-	return price(clock), nil
+	return withRoundingSlack(price(clock), k), nil
+}
+
+// roundingSlackPerMillion is the cap's allowance for integer rounding, per block, in millionths.
+const roundingSlackPerMillion = 1
+
+// withRoundingSlack is fee·(1 + k·10⁻⁶), rounded up.
+func withRoundingSlack(fee *big.Int, k int) *big.Int {
+	const million = 1_000_000
+	out := new(big.Int).Mul(fee, big.NewInt(million+int64(k)*roundingSlackPerMillion))
+	out.Add(out, big.NewInt(million-1))
+	return out.Quo(out, big.NewInt(million))
 }
 
 // Model is the gasometer.SAEModel of this package's functions.

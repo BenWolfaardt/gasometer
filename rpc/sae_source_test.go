@@ -19,7 +19,7 @@ import (
 )
 
 // saeServer answers batched eth_getBlockByNumber calls from testdata/sae.json, a recorded C-Chain window holding
-// atomic txs. edit may change a block before it is served.
+// atomic txs. edit may change a block before it is served; a block it empties is served as null.
 type saeServer struct {
 	t       *testing.T
 	blocks  map[string]map[string]any
@@ -69,7 +69,7 @@ func (s *saeServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			s.t.Errorf("unexpected call %s %v", in.Method, in.Params)
 		case msg != "":
 			resp["error"] = map[string]any{"code": -32000, "message": msg}
-		case block == nil:
+		case len(block) == 0:
 			resp["result"] = nil
 		default:
 			resp["result"] = block
@@ -234,6 +234,31 @@ func TestSAESourceRetriesBlockNotAcceptedYet(t *testing.T) {
 	observer := &recordingObserver{}
 	if _, err := rpc.NewSAESource(newClient(t, observer, srv.URL)).SAEBlocks(t.Context(), mustHead(t, server)); err != nil {
 		t.Fatal(err)
+	}
+	if got := observer.outcomes(); len(got) < 2 || got[0].outcome != rpc.OutcomeRetryable {
+		t.Fatalf("outcomes %v", got)
+	}
+}
+
+func TestSAESourceRetriesNullBlock(t *testing.T) {
+	server, srv := newSAEServer(t)
+	head := mustHead(t, server)
+	headKey := "0x" + strconv.FormatUint(head, 16)
+	nulled := false
+	server.edit = func(number string, block map[string]any) string {
+		if number == headKey && !nulled {
+			nulled = true
+			clear(block)
+		}
+		return ""
+	}
+	observer := &recordingObserver{}
+	blocks, err := rpc.NewSAESource(newClient(t, observer, srv.URL)).SAEBlocks(t.Context(), head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blocks[len(blocks)-1].Number != head {
+		t.Fatalf("last block %d, want %d", blocks[len(blocks)-1].Number, head)
 	}
 	if got := observer.outcomes(); len(got) < 2 || got[0].outcome != rpc.OutcomeRetryable {
 		t.Fatalf("outcomes %v", got)

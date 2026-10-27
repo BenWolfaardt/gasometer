@@ -152,8 +152,15 @@ func outcome(err error) string {
 // report a head that the backend serving the next request has not reached; it does within a block or two.
 const notAcceptedYet = "not accepted yet"
 
+// errBehindHead is a backend answering null for a block another backend reported as the head; like notAcceptedYet,
+// it has the block within a block or two.
+var errBehindHead = errors.New("block not found on this backend")
+
 // retryable is true for HTTP 429 and 5xx, transport failures, per-attempt timeouts and a backend behind head.
 func retryable(err error) bool {
+	if errors.Is(err, errBehindHead) {
+		return true
+	}
 	var httpErr rpc.HTTPError
 	if errors.As(err, &httpErr) {
 		return httpErr.StatusCode == http.StatusTooManyRequests || httpErr.StatusCode >= 500

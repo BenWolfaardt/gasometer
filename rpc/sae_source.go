@@ -93,6 +93,9 @@ func (s *SAESource) batch(ctx context.Context, from, to uint64) ([]*rawSAEBlock,
 			if e.Error != nil {
 				return fmt.Errorf("block %d: %w", from+uint64(i), e.Error)
 			}
+			if raw[i] == nil {
+				return fmt.Errorf("block %d: %w", from+uint64(i), errBehindHead)
+			}
 		}
 		return nil
 	})
