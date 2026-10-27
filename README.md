@@ -17,7 +17,7 @@ Every 60 seconds, for each network, gasometer stores the fee data of every new b
 
 A bid lands if it beats the required tip of any one block in its horizon, so gasometer's tip targets the cheapest block of a window rather than a typical block. Backtested on ten hours of all three networks, that rule lands at least 98.7% of bids at every horizon.
 
-The gasometer predictor projects the base fee from the growth observed over the same span in the last hour, at its 0.99 quantile. On OP Stack networks that projection is capped by the protocol's worst case: each full block can raise the base fee by at most (elasticity − 1) ÷ denominator, which is 4% per block on Base and 0.4% on OP. On C-Chain it is capped by the gas clock's worst case: the base fee after every block up to the horizon is full.
+The gasometer predictor projects the base fee from the growth observed over the same span in the last hour, at its 0.99 quantile. On OP Stack networks that projection is capped by the protocol's worst case: each full block can raise the base fee by at most (elasticity − 1) ÷ denominator, which is 4% per block on Base and 0.4% on OP. On C-Chain it is capped by the gas clock's worst case: the base fee after every block up to the horizon is full, at the worst gas config the protocol allows.
 
 Once the horizon has passed, each bid made at block n with a horizon of k blocks is scored against the blocks n+1 to n+k:
 
@@ -32,7 +32,7 @@ A block's **required tip** is a percentile by gas of the tips it included: the 5
 
 **The fee model checks itself in production.** On Base and OP, every poll computes the next base fee from the latest header with gasometer's own EIP-1559 implementation, including the OP Stack's per-network parameters and Jovian's minimum base fee and metered gas, and compares it with the node's. The same model is property-tested, fuzzed, checked against libevm's `CalcBaseFee`, and replayed against the last 500 Base and OP headers.
 
-C-Chain runs Streaming Asynchronous Execution, whose base fee follows a gas clock rather than EIP-1559. gasometer runs avalanchego's own clock (`vms/saevm/gastime`) over the blocks since the head's settled block, as a validator does when it builds a block, and every poll compares the result with the head's base fee. It matches all of the last 2,000 blocks, including those carrying atomic import and export transactions.
+C-Chain runs Streaming Asynchronous Execution, whose base fee follows a gas clock rather than EIP-1559. gasometer runs avalanchego's own clock (`vms/saevm/gastime`) over the blocks since the head's settled block, as a validator does when it builds a block, and every poll compares the result with the head's base fee. It matches all of the last 10,000 blocks, including those carrying atomic import and export transactions. [How the C-Chain base fee works under SAE](docs/sae-gas-pricing.md) explains the clock, the ceiling and what the RPC returns.
 
 On every network a mismatch increments `gasometer_model_mismatch_total`, which should stay at zero.
 
@@ -101,7 +101,7 @@ Requires Go 1.26.10 with cgo and a C compiler, which avalanchego needs, and Dock
 | `make fuzz` | Every fuzz target, 10 s each by default |
 | `make lint` | `go vet` and golangci-lint |
 | `make test-db-up`, `make integration` | Postgres store tests and a start-stop run of the binary |
-| `make live` | Replays the last 500 Base and OP headers and the last 2,000 C-Chain blocks against the fee model; needs network |
+| `make live` | Replays the last 500 Base and OP headers and the last 10,000 C-Chain blocks against the fee model, and samples C-Chain's `eth_feeHistory`; needs network |
 
 The code follows Ben Johnson's [Standard Package Layout](https://medium.com/@benbjohnson/standard-package-layout-7cdbc8391fc1):
 

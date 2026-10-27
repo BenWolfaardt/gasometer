@@ -54,6 +54,8 @@ func MaxBaseFeeAfter(blocks []gasometer.SAEBlock, k int) (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The walk states the worst config the chain can reach, read from avalanchego's own Toward caps. It is not the
+	// worst rounding path, and the slack alone keeps the bound: dropping either walk leaves every test green.
 	b := blocks[len(blocks)-1]
 	for range k {
 		b.TargetExponent = uint64(dynamic.TargetExponent(b.TargetExponent).Toward(new(dynamic.TargetExponent)))

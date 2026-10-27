@@ -188,10 +188,11 @@ func (c *Collector) checkOPStack(head gasometer.HeadFee, next *big.Int) gasomete
 	return ceiling
 }
 
-// checkSAE compares the model's base fee for the head with the head's header, which cannot race the chain. The head is
-// the last executed block, and the RPC's next base fee is the model's bound only when that is also the last accepted
-// one (gasprice/estimator.go FeeHistory), so a difference there is logged without counting, and the ceiling, which
-// starts from that bound, is returned only when the two agree.
+// checkSAE compares the model's base fee for the head with the head's header, which cannot race the chain. The RPC's
+// next base fee is the model's bound only when the node answering eth_feeHistory has accepted no block past the head
+// (gasprice/estimator.go FeeHistory); behind a load balancer that node is often ahead of the one that reported the
+// head. So a difference there is logged without counting, and the ceiling, which starts from that bound, is returned
+// only when the two agree.
 func (c *Collector) checkSAE(ctx context.Context, head gasometer.HeadFee, next *big.Int) gasometer.BaseFeeCeiling {
 	if c.deps.SAE == nil || c.deps.SAEModel == nil {
 		return nil
@@ -216,7 +217,7 @@ func (c *Collector) checkSAE(ctx context.Context, head gasometer.HeadFee, next *
 		c.log.Warn("fee model could not run", "err", err, "block", head.Number)
 		return nil
 	case bound.Cmp(next) != 0:
-		c.log.Debug("RPC next base fee is not the model's bound; the head is executed but not the last accepted block",
+		c.log.Debug("RPC next base fee is not the model's bound; the node that answered had accepted a block past the head",
 			"block", head.Number, "model", bound, "rpc", next)
 		return nil
 	}
