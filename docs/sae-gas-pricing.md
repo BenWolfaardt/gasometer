@@ -159,11 +159,11 @@ func (s *State) FinishBlock() (*blocks.WorstCaseBounds, error) {
 
 gasometer's [`sae`](../sae/sae.go) package does the same replay with avalanchego's own `gastime`, `proxytime` and `cchain/dynamic`, and parses atomic transactions with `cchain/tx`.
 
-How far back settlement reaches decides how many blocks the replay covers. Over 10,000 mainnet blocks the settled block lagged its block by:
+How far back a block's settled block sits decides how many blocks the replay must fetch. The chart counts it for 10,000 consecutive mainnet blocks: 2,962 of them settled the block 8 behind them, 2,699 the block 7 behind, and none more than 16.
 
-| Lag (blocks) | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 to 16 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Blocks | 21 | 542 | 653 | 544 | 844 | 1,515 | 2,699 | 2,962 | 151 | 36 | 18 | 15 |
+![Blocks between a block and the block it settles, over 10,000 mainnet blocks](sae-settlement-lag.svg)
+
+The peak follows from $\tau$. A block can only settle one whose execution finished at least 5 s before it, and C-Chain produces about one block a second, so 5 s plus the time execution takes puts the settled block 7 or 8 blocks back. When blocks come faster than usual more of them fit in that window, and when they pause fewer do, which spreads the count either side.
 
 ## 4. The worst-case bound
 
