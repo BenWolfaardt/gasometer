@@ -82,7 +82,7 @@ func TestWorstCaseProjector(t *testing.T) {
 	in := predict.ProjectionInput{NextBaseFee: wei(10_000_000), History: history, Blocks: 2}
 	p := predict.NewWorstCaseProjector(predict.NewEmpiricalProjector(0.99))
 
-	in.Params = &baseParams
+	in.Ceiling = baseCeiling
 	proj, err := p.Project(in)
 	if err != nil {
 		t.Fatal(err)
@@ -91,20 +91,20 @@ func TestWorstCaseProjector(t *testing.T) {
 		t.Fatalf("capped: got %s %s", proj.Expected, proj.Upper)
 	}
 
-	in.Params = nil
+	in.Ceiling = nil
 	proj, err = p.Project(in)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !eqWei(proj.Upper, 20_000_000) {
-		t.Fatalf("no params must pass through uncapped: got %s", proj.Upper)
+		t.Fatalf("no ceiling must pass through uncapped: got %s", proj.Upper)
 	}
 }
 
 func TestWorstCaseProjectorKeepsLowerProjection(t *testing.T) {
 	history := blocks(1, []int64{100, 101}, repeat(0, 2))
 	proj, err := predict.NewWorstCaseProjector(predict.NewEmpiricalProjector(0.99)).Project(predict.ProjectionInput{
-		NextBaseFee: wei(10_000_000), History: history, Blocks: 2, Params: &baseParams,
+		NextBaseFee: wei(10_000_000), History: history, Blocks: 2, Ceiling: baseCeiling,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +116,7 @@ func TestWorstCaseProjectorKeepsLowerProjection(t *testing.T) {
 
 func TestWorstCaseProjectorPropagatesErrors(t *testing.T) {
 	_, err := predict.NewWorstCaseProjector(predict.NewEmpiricalProjector(0.99)).Project(predict.ProjectionInput{
-		NextBaseFee: wei(1), Blocks: 3, Params: &baseParams,
+		NextBaseFee: wei(1), Blocks: 3, Ceiling: baseCeiling,
 	})
 	if !errors.Is(err, gasometer.ErrInsufficientHistory) {
 		t.Fatalf("got %v", err)

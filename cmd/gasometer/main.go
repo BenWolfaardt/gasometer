@@ -23,6 +23,7 @@ import (
 	"github.com/BenWolfaardt/gasometer/predict"
 	"github.com/BenWolfaardt/gasometer/prometheus"
 	"github.com/BenWolfaardt/gasometer/rpc"
+	"github.com/BenWolfaardt/gasometer/sae"
 )
 
 const pruneInterval = time.Hour
@@ -118,7 +119,7 @@ type stores struct {
 
 func pollTick(cfg fileConfig, n networkConfig, client *rpc.Client, s stores, log *slog.Logger) (poll.Tick, error) {
 	network := gasometer.Network{Name: n.Name, ChainID: n.ChainID, Kind: gasometer.NetworkKind(n.Kind), Coin: n.Coin}
-	predictors, err := buildPredictors(cfg, network)
+	predictors, err := buildPredictors(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -136,6 +137,9 @@ func pollTick(cfg fileConfig, n networkConfig, client *rpc.Client, s stores, log
 	}
 	if network.HasL1Fee() {
 		collectorDeps.L1Fees = rpc.NewL1FeeSource(client, network.ChainID)
+	}
+	if network.Kind == gasometer.NetworkKindAvalancheSAE {
+		collectorDeps.SAE, collectorDeps.SAEModel = rpc.NewSAESource(client), sae.Model{}
 	}
 	collectorParams := poll.CollectorParams{
 		RequiredTipPercentile: n.RequiredTipPercentile,
@@ -166,13 +170,10 @@ func referenceTxs(cfg fileConfig) []gasometer.ReferenceTx {
 	return txs
 }
 
-// buildPredictors wires the configured predictors. OP Stack networks cap the gasometer projection with the fee
-// model; Avalanche uses the empirical projection alone until an SAE projector exists.
-func buildPredictors(cfg fileConfig, network gasometer.Network) ([]gasometer.Predictor, error) {
-	var projector predict.BaseFeeProjector = predict.NewEmpiricalProjector(cfg.Gasometer.GrowthQuantile)
-	if network.Kind == gasometer.NetworkKindOPStack {
-		projector = predict.NewWorstCaseProjector(projector)
-	}
+// buildPredictors wires the configured predictors. The gasometer projection is capped at the fee model's ceiling
+// whenever the collector has one.
+func buildPredictors(cfg fileConfig) ([]gasometer.Predictor, error) {
+	projector := predict.NewWorstCaseProjector(predict.NewEmpiricalProjector(cfg.Gasometer.GrowthQuantile))
 	var out []gasometer.Predictor
 	for _, name := range cfg.Predictors {
 		switch name {

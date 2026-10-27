@@ -63,7 +63,7 @@ func (f *Forecaster) Forecast(ctx context.Context, obs Observation) (int, error)
 	for _, predictor := range f.deps.Predictors {
 		for _, h := range horizons {
 			bid, err := predictor.Predict(gasometer.PredictionInput{
-				Snapshot: obs.Snapshot, History: history, Horizon: h, Params: obs.Params,
+				Snapshot: obs.Snapshot, History: history, Horizon: h, Ceiling: obs.Ceiling,
 			})
 			if err != nil {
 				level := slog.LevelWarn

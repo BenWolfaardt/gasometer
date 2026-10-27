@@ -12,4 +12,5 @@ var (
 	ErrInvalidBid              = errors.New("invalid bid")
 	ErrInvalidConfig           = errors.New("invalid config")
 	ErrMalformedFeeHistory     = errors.New("malformed fee history")
+	ErrInvalidSAEBlocks        = errors.New("invalid SAE blocks")
 )

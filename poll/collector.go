@@ -18,7 +18,7 @@ import (
 type Observation struct {
 	Snapshot gasometer.FeeSnapshot
 	Head     gasometer.HeadFee
-	Params   *gasometer.FeeParams // nil when no model applies
+	Ceiling  gasometer.BaseFeeCeiling // nil when no model applies
 }
 
 // CollectorParams are a collector's decisions for one network.
@@ -28,11 +28,14 @@ type CollectorParams struct {
 	InitialBackfill       uint64 // blocks fetched on a first run
 }
 
-// CollectorDeps are a collector's collaborators. Prices and L1Fees may be nil.
+// CollectorDeps are a collector's collaborators. Prices and L1Fees may be nil, and SAE and SAEModel are nil except on
+// Avalanche SAE networks.
 type CollectorDeps struct {
 	Fees      gasometer.FeeSource
 	Prices    gasometer.PriceSource
 	L1Fees    gasometer.L1FeeSource
+	SAE       gasometer.SAESource
+	SAEModel  gasometer.SAEModel
 	Blocks    gasometer.BlockStore
 	Snapshots gasometer.SnapshotStore
 	Metrics   gasometer.MetricsRecorder
@@ -78,7 +81,7 @@ func (c *Collector) Collect(ctx context.Context) (Observation, error) {
 	if err != nil {
 		return Observation{}, err
 	}
-	params := c.selfCheck(head, next)
+	ceiling := c.selfCheck(ctx, head, next)
 
 	nodeTip, err := c.deps.Fees.NodeTip(ctx)
 	if err != nil {
@@ -99,7 +102,7 @@ func (c *Collector) Collect(ctx context.Context) (Observation, error) {
 		return Observation{}, fmt.Errorf("store snapshot: %w", err)
 	}
 	c.deps.Metrics.Snapshot(c.network.Name, snapshot, latest, freshPrice)
-	return Observation{Snapshot: snapshot, Head: head, Params: params}, nil
+	return Observation{Snapshot: snapshot, Head: head, Ceiling: ceiling}, nil
 }
 
 // firstBlock is the block after the latest stored, or the start of the initial backfill on a first run.
@@ -153,26 +156,70 @@ func (c *Collector) storeBlocks(ctx context.Context, from, head uint64, observed
 	return blocks[len(blocks)-1], history.NextBaseFee(), nil
 }
 
-// selfCheck compares the model's next base fee with the RPC's and returns the params the model used.
-func (c *Collector) selfCheck(head gasometer.HeadFee, next *big.Int) *gasometer.FeeParams {
-	if c.network.Kind != gasometer.NetworkKindOPStack {
-		return nil
+// selfCheck runs the network's fee model against the RPC, counting a mismatch, and returns the model's base fee
+// ceiling from next, or nil when the model cannot give one.
+func (c *Collector) selfCheck(ctx context.Context, head gasometer.HeadFee, next *big.Int) gasometer.BaseFeeCeiling {
+	switch c.network.Kind {
+	case gasometer.NetworkKindOPStack:
+		return c.checkOPStack(head, next)
+	case gasometer.NetworkKindAvalancheSAE:
+		return c.checkSAE(ctx, head, next)
 	}
+	return nil
+}
+
+// checkOPStack compares the model's next base fee with the RPC's.
+func (c *Collector) checkOPStack(head gasometer.HeadFee, next *big.Int) gasometer.BaseFeeCeiling {
 	params, err := fee.DecodeOPStackExtraData(head.ExtraData)
 	if err != nil {
 		c.logDecodeError(head, err)
 		return nil
 	}
+	ceiling := fee.Ceiling{Params: params, NextBaseFee: next}
 	computed, err := fee.NextBaseFee(params, head.BaseFee, head.GasMetered(), head.GasLimit)
 	if err != nil {
 		c.log.Warn("fee model could not run", "err", err, "block", head.Number)
-		return &params
+		return ceiling
 	}
 	if computed.Cmp(next) != 0 {
 		c.deps.Metrics.ModelMismatch(c.network.Name)
 		c.log.Warn("fee model mismatch", "block", head.Number, "model", computed, "rpc", next)
 	}
-	return &params
+	return ceiling
+}
+
+// checkSAE compares the model's base fee for the head with the head's header, which cannot race the chain. The RPC's
+// next base fee is the model's bound only while head is the last accepted block, so a difference there is logged
+// without counting, and the ceiling, which starts from that bound, is returned only when the two agree.
+func (c *Collector) checkSAE(ctx context.Context, head gasometer.HeadFee, next *big.Int) gasometer.BaseFeeCeiling {
+	if c.deps.SAE == nil || c.deps.SAEModel == nil {
+		return nil
+	}
+	blocks, err := c.deps.SAE.SAEBlocks(ctx, head.Number)
+	if err != nil {
+		c.log.Warn("read SAE blocks; skipping the fee model check", "err", err, "block", head.Number)
+		return nil
+	}
+	computed, err := c.deps.SAEModel.BaseFee(blocks)
+	if err != nil {
+		c.log.Warn("fee model could not run", "err", err, "block", head.Number)
+		return nil
+	}
+	if computed.Cmp(head.BaseFee) != 0 {
+		c.deps.Metrics.ModelMismatch(c.network.Name)
+		c.log.Warn("fee model mismatch", "block", head.Number, "model", computed, "header", head.BaseFee)
+	}
+	bound, err := c.deps.SAEModel.NextBaseFee(blocks)
+	switch {
+	case err != nil:
+		c.log.Warn("fee model could not run", "err", err, "block", head.Number)
+		return nil
+	case bound.Cmp(next) != 0:
+		c.log.Debug("RPC next base fee is not the model's bound; a block was accepted after the head was read",
+			"block", head.Number, "model", bound, "rpc", next)
+		return nil
+	}
+	return c.deps.SAEModel.Ceiling(blocks)
 }
 
 func (c *Collector) logDecodeError(head gasometer.HeadFee, err error) {

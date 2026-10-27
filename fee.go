@@ -69,3 +69,31 @@ type FeeSnapshot struct {
 	Price       *PriceQuote         // nil when the feed could not be read
 	L1Fees      map[string]*big.Int // reference tx name to L1 data fee
 }
+
+// BaseFeeCeiling bounds the base fee across a horizon.
+type BaseFeeCeiling interface {
+	// MaxBaseFeeAfter is the highest base fee reachable after k full blocks following the next one.
+	MaxBaseFeeAfter(k int) (*big.Int, error)
+}
+
+// SAESettled is the gas clock after executing the block a header settles.
+type SAESettled struct {
+	Height       uint64
+	GasUnix      uint64
+	GasNumerator uint64
+	Excess       uint64
+}
+
+// SAEBlock is one Avalanche SAE block's gas clock inputs.
+type SAEBlock struct {
+	Number           uint64
+	Time             uint64 // seconds
+	TimeMilliseconds uint64 // only its sub-second part refines Time
+	BaseFee          *big.Int
+	Settled          *SAESettled // nil for a synchronous, pre-SAE block
+	TargetExponent   uint64
+	MinPriceExponent uint64
+	MinDelayExcess   uint64
+	TxGasLimit       uint64 // sum of the transactions' gas limits
+	AtomicGas        uint64 // gas of the atomic import and export ops
+}

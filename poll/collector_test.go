@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/BenWolfaardt/gasometer"
+	"github.com/BenWolfaardt/gasometer/fee"
 	"github.com/BenWolfaardt/gasometer/mock"
 	"github.com/BenWolfaardt/gasometer/poll"
 )
@@ -21,10 +22,13 @@ type collectFixture struct {
 	blocks    *mock.BlockStore
 	snapshots *mock.SnapshotStore
 	metrics   *mock.MetricsRecorder
+	sae       *mock.SAESource
+	model     *mock.SAEModel
+	saeHeads  []uint64
 }
 
 func newCollectFixture(head uint64, next int64) *collectFixture {
-	return &collectFixture{
+	f := &collectFixture{
 		fees: feeSource(head, next),
 		prices: &mock.PriceSource{PriceFn: func() (gasometer.PriceQuote, error) {
 			return gasometer.PriceQuote{Answer: wei(300_000_000_000), Decimals: 8, UpdatedAt: t0.Add(-time.Minute)}, nil
@@ -39,7 +43,18 @@ func newCollectFixture(head uint64, next int64) *collectFixture {
 		blocks:    mock.NewBlockStore(),
 		snapshots: mock.NewSnapshotStore(),
 		metrics:   mock.NewMetricsRecorder(),
+		// The SAE model agrees with feeSource: the head's base fee, and next as the next.
+		model: &mock.SAEModel{
+			BaseFeeFn:     func([]gasometer.SAEBlock) (*big.Int, error) { return wei(10_000_000), nil },
+			NextBaseFeeFn: func([]gasometer.SAEBlock) (*big.Int, error) { return wei(next), nil },
+			CeilingFn:     func(blocks []gasometer.SAEBlock) gasometer.BaseFeeCeiling { return saeCeiling{len(blocks)} },
+		},
 	}
+	f.sae = &mock.SAESource{SAEBlocksFn: func(head uint64) ([]gasometer.SAEBlock, error) {
+		f.saeHeads = append(f.saeHeads, head)
+		return []gasometer.SAEBlock{{Number: head - 1}, {Number: head}}, nil
+	}}
+	return f
 }
 
 func (f *collectFixture) collector(network gasometer.Network, params poll.CollectorParams) *poll.Collector {
@@ -49,6 +64,9 @@ func (f *collectFixture) collector(network gasometer.Network, params poll.Collec
 	}
 	if network.HasL1Fee() {
 		deps.L1Fees = f.l1
+	}
+	if network.Kind == gasometer.NetworkKindAvalancheSAE {
+		deps.SAE, deps.SAEModel = f.sae, f.model
 	}
 	return poll.NewCollector(network, params, refTxs, deps)
 }
@@ -79,8 +97,9 @@ func TestCollectorFirstRun(t *testing.T) {
 	if _, ok := f.snapshots.Snapshots[s.ID]; !ok {
 		t.Fatal("snapshot not stored")
 	}
-	if obs.Params == nil || obs.Params.Denominator != 100 || obs.Params.Elasticity != 5 {
-		t.Fatalf("params %+v", obs.Params)
+	if c, ok := obs.Ceiling.(fee.Ceiling); !ok || c.Params.Denominator != 100 || c.Params.Elasticity != 5 ||
+		!eqWei(c.NextBaseFee, modelNext) {
+		t.Fatalf("ceiling %+v", obs.Ceiling)
 	}
 	if len(f.metrics.Snapshots) != 1 || f.metrics.Snapshots[0].Price == nil || f.metrics.Snapshots[0].Latest.Number != 5_000 {
 		t.Fatalf("metrics %+v", f.metrics.Snapshots)
@@ -137,8 +156,8 @@ func TestCollectorSelfCheck(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if f.metrics.Mismatches["base"] != 1 || obs.Params == nil || !eqWei(obs.Snapshot.NextBaseFee, modelNext+1) {
-			t.Fatalf("mismatches %d, params %+v", f.metrics.Mismatches["base"], obs.Params)
+		if f.metrics.Mismatches["base"] != 1 || obs.Ceiling == nil || !eqWei(obs.Snapshot.NextBaseFee, modelNext+1) {
+			t.Fatalf("mismatches %d, ceiling %+v", f.metrics.Mismatches["base"], obs.Ceiling)
 		}
 	})
 	t.Run("DA footprint drives the model", func(t *testing.T) {
@@ -157,7 +176,7 @@ func TestCollectorSelfCheck(t *testing.T) {
 			t.Fatal("model ignored the DA footprint")
 		}
 	})
-	t.Run("unknown extraData version leaves params unknown", func(t *testing.T) {
+	t.Run("unknown extraData version leaves no ceiling", func(t *testing.T) {
 		f := newCollectFixture(5_000, modelNext+1)
 		f.fees.HeadFeeFn = func() (gasometer.HeadFee, error) {
 			return gasometer.HeadFee{Number: 5_000, BaseFee: wei(1), GasLimit: 30_000_000, ExtraData: []byte{0x07}}, nil
@@ -168,20 +187,102 @@ func TestCollectorSelfCheck(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if obs.Params != nil || f.metrics.Mismatches["base"] != 0 {
-				t.Fatalf("params %+v, mismatches %d", obs.Params, f.metrics.Mismatches["base"])
+			if obs.Ceiling != nil || f.metrics.Mismatches["base"] != 0 {
+				t.Fatalf("ceiling %+v, mismatches %d", obs.Ceiling, f.metrics.Mismatches["base"])
 			}
 		}
 	})
-	t.Run("avalanche has no model", func(t *testing.T) {
-		f := newCollectFixture(5_000, modelNext+1)
-		cchain := gasometer.Network{Name: "cchain", ChainID: 43114, Kind: gasometer.NetworkKindAvalancheSAE, Coin: "AVAX"}
-		obs, err := f.collector(cchain, collectorParams).Collect(t.Context())
+}
+
+// saeCeiling stands in for the SAE model's ceiling over n blocks.
+type saeCeiling struct{ n int }
+
+func (saeCeiling) MaxBaseFeeAfter(int) (*big.Int, error) { return wei(1), nil }
+
+var cchainNet = gasometer.Network{Name: "cchain", ChainID: 43114, Kind: gasometer.NetworkKindAvalancheSAE, Coin: "AVAX"}
+
+func TestCollectorSAESelfCheck(t *testing.T) {
+	collect := func(t *testing.T, f *collectFixture) poll.Observation {
+		t.Helper()
+		obs, err := f.collector(cchainNet, collectorParams).Collect(t.Context())
 		if err != nil {
 			t.Fatal(err)
 		}
-		if obs.Params != nil || f.metrics.Mismatches["cchain"] != 0 || len(obs.Snapshot.L1Fees) != 0 {
-			t.Fatalf("params %+v, l1 %v", obs.Params, obs.Snapshot.L1Fees)
+		if len(obs.Snapshot.L1Fees) != 0 {
+			t.Fatalf("l1 %v", obs.Snapshot.L1Fees)
+		}
+		return obs
+	}
+	noCeiling := func(t *testing.T, obs poll.Observation) {
+		t.Helper()
+		if obs.Ceiling != nil {
+			t.Fatalf("ceiling %+v", obs.Ceiling)
+		}
+	}
+	t.Run("model matches the head", func(t *testing.T) {
+		f := newCollectFixture(5_000, modelNext+1)
+		var modelled []gasometer.SAEBlock
+		f.model.BaseFeeFn = func(blocks []gasometer.SAEBlock) (*big.Int, error) {
+			modelled = blocks
+			return wei(10_000_000), nil
+		}
+		obs := collect(t, f)
+		if obs.Ceiling != (saeCeiling{2}) {
+			t.Fatalf("ceiling %+v", obs.Ceiling)
+		}
+		if f.metrics.Mismatches["cchain"] != 0 || len(f.saeHeads) != 1 || f.saeHeads[0] != 5_000 ||
+			len(modelled) != 2 || modelled[1].Number != 5_000 {
+			t.Fatalf("mismatches %d, SAE heads %v, modelled %v", f.metrics.Mismatches["cchain"], f.saeHeads, modelled)
+		}
+	})
+	t.Run("head mismatch is counted and collection continues", func(t *testing.T) {
+		f := newCollectFixture(5_000, modelNext+1)
+		f.model.BaseFeeFn = func([]gasometer.SAEBlock) (*big.Int, error) { return wei(10_000_001), nil }
+		obs := collect(t, f)
+		if f.metrics.Mismatches["cchain"] != 1 || !eqWei(obs.Snapshot.NextBaseFee, modelNext+1) {
+			t.Fatalf("mismatches %d, next %v", f.metrics.Mismatches["cchain"], obs.Snapshot.NextBaseFee)
+		}
+	})
+	t.Run("next base fee disagreement is not counted", func(t *testing.T) {
+		// eth_feeHistory serves the following block's header once one is accepted.
+		f := newCollectFixture(5_000, modelNext+1)
+		f.model.NextBaseFeeFn = func([]gasometer.SAEBlock) (*big.Int, error) { return wei(modelNext + 2), nil }
+		noCeiling(t, collect(t, f))
+		if f.metrics.Mismatches["cchain"] != 0 {
+			t.Fatal("next base fee disagreement counted")
+		}
+	})
+	t.Run("source error skips the check", func(t *testing.T) {
+		f := newCollectFixture(5_000, modelNext+1)
+		f.sae.SAEBlocksFn = func(uint64) ([]gasometer.SAEBlock, error) { return nil, errors.New("rpc down") }
+		f.model.BaseFeeFn = func([]gasometer.SAEBlock) (*big.Int, error) {
+			t.Fatal("model ran without blocks")
+			return nil, nil
+		}
+		noCeiling(t, collect(t, f))
+		if f.metrics.Mismatches["cchain"] != 0 {
+			t.Fatal("source error counted")
+		}
+	})
+	t.Run("model that cannot run is not counted", func(t *testing.T) {
+		f := newCollectFixture(5_000, modelNext+1)
+		f.model.BaseFeeFn = func([]gasometer.SAEBlock) (*big.Int, error) { return nil, gasometer.ErrInvalidSAEBlocks }
+		noCeiling(t, collect(t, f))
+		if f.metrics.Mismatches["cchain"] != 0 {
+			t.Fatal("model error counted")
+		}
+	})
+	t.Run("OP Stack never reads SAE blocks", func(t *testing.T) {
+		f := newCollectFixture(5_000, modelNext)
+		deps := poll.CollectorDeps{
+			Fees: f.fees, Prices: f.prices, L1Fees: f.l1, SAE: f.sae, SAEModel: f.model, Blocks: f.blocks,
+			Snapshots: f.snapshots, Metrics: f.metrics, Now: clock(t0), Log: nopLog,
+		}
+		if _, err := poll.NewCollector(baseNet, collectorParams, refTxs, deps).Collect(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if len(f.saeHeads) != 0 {
+			t.Fatalf("SAE heads %v", f.saeHeads)
 		}
 	})
 }

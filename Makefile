@@ -66,12 +66,12 @@ integration: ## Run integration tests against GASOMETER_TEST_DATABASE_URL (see t
 	go test -tags integration -count=1 ./postgres/... ./cmd/...
 
 .PHONY: live
-live: ## Replay recent Base and OP headers against the fee model (needs network)
+live: ## Replay recent Base and OP headers and C-Chain blocks against the fee models (needs network)
 	go test -tags live -count=1 -v -run TestLive ./rpc/
 
 .PHONY: record-fixtures
-record-fixtures: ## Re-record the fixtures in rpc/testdata (needs network)
-	go test -tags record -count=1 -run TestRecordFixtures ./rpc/
+record-fixtures: ## Re-record the fixtures in rpc/testdata and sae/testdata (needs network)
+	go test -tags record -count=1 -run 'TestRecord' ./rpc/
 
 .PHONY: migrate
 migrate: ## Apply migrations to DATABASE_URL

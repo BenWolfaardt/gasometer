@@ -126,7 +126,7 @@ func (p *Gasometer) Predict(in gasometer.PredictionInput) (gasometer.Bid, error)
 		NextBaseFee: in.Snapshot.NextBaseFee,
 		History:     in.History,
 		Blocks:      in.Horizon.Blocks,
-		Params:      in.Params,
+		Ceiling:     in.Ceiling,
 	})
 	if err != nil {
 		return gasometer.Bid{}, fmt.Errorf("project base fee: %w", err)

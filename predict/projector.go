@@ -5,15 +5,14 @@ import (
 	"math/big"
 
 	"github.com/BenWolfaardt/gasometer"
-	"github.com/BenWolfaardt/gasometer/fee"
 )
 
 // ProjectionInput is what a projector sees for one horizon.
 type ProjectionInput struct {
 	NextBaseFee *big.Int
-	History     []gasometer.BlockFee // ascending, the growth window
-	Blocks      int                  // horizon in blocks
-	Params      *gasometer.FeeParams // nil when no model applies
+	History     []gasometer.BlockFee     // ascending, the growth window
+	Blocks      int                      // horizon in blocks
+	Ceiling     gasometer.BaseFeeCeiling // nil when no model applies
 }
 
 // BaseFeeProjection is the base fee expected, and a high quantile of it, at the last block of a horizon.
@@ -91,7 +90,7 @@ type WorstCaseProjector struct {
 	inner BaseFeeProjector
 }
 
-// NewWorstCaseProjector caps inner's projection at MaxBaseFeeAfter when fee params are known.
+// NewWorstCaseProjector caps inner's projection at the fee model's ceiling when one is known.
 func NewWorstCaseProjector(inner BaseFeeProjector) *WorstCaseProjector {
 	return &WorstCaseProjector{inner: inner}
 }
@@ -99,10 +98,10 @@ func NewWorstCaseProjector(inner BaseFeeProjector) *WorstCaseProjector {
 // Project projects the base fee across in's horizon.
 func (p *WorstCaseProjector) Project(in ProjectionInput) (BaseFeeProjection, error) {
 	proj, err := p.inner.Project(in)
-	if err != nil || in.Params == nil {
+	if err != nil || in.Ceiling == nil {
 		return proj, err
 	}
-	ceiling, err := fee.MaxBaseFeeAfter(*in.Params, in.NextBaseFee, in.Blocks-1)
+	ceiling, err := in.Ceiling.MaxBaseFeeAfter(in.Blocks - 1)
 	if err != nil {
 		return BaseFeeProjection{}, err
 	}

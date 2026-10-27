@@ -53,7 +53,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "### How much of each transaction fee was unnecessary\nEvery minute, on each network, gasometer prices a native transfer three ways and checks which blocks it would have landed in within 30 seconds. **Red is what was paid above the cheapest price that landed.** The fee model is built on Avalanche's [libevm](https://github.com/ava-labs/libevm)."
+        "content": "### How much of each transaction fee was unnecessary\nEvery minute, on each network, gasometer prices a native transfer three ways and checks which blocks it would have landed in within 30 seconds. **Red is what was paid above the cheapest price that landed.** The fee model is built on Avalanche's [libevm](https://github.com/ava-labs/libevm), and C-Chain's base fee on [avalanchego](https://github.com/ava-labs/avalanchego)'s SAE gas clock."
       },
       "id": 1
     },

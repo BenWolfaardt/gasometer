@@ -3,7 +3,9 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/gasometer ./cmd/gasometer
+# avalanchego needs cgo (blst, libevm's secp256k1); link static so the distroless static image still runs it.
+RUN CGO_ENABLED=1 go build -tags netgo,osusergo -trimpath \
+    -ldflags='-s -w -linkmode external -extldflags -static' -o /out/gasometer ./cmd/gasometer
 
 FROM gcr.io/distroless/static-debian13:nonroot
 COPY --from=build /out/gasometer /gasometer

@@ -28,6 +28,19 @@ func NextBaseFee(params gasometer.FeeParams, parentBaseFee *big.Int, gasMetered,
 	return applyMinBaseFee(params, calcBaseFee(params, parentBaseFee, gasMetered, target)), nil
 }
 
+// Ceiling is the OP Stack base fee ceiling from the next base fee under params.
+type Ceiling struct {
+	Params      gasometer.FeeParams
+	NextBaseFee *big.Int
+}
+
+var _ gasometer.BaseFeeCeiling = Ceiling{}
+
+// MaxBaseFeeAfter implements gasometer.BaseFeeCeiling.
+func (c Ceiling) MaxBaseFeeAfter(k int) (*big.Int, error) {
+	return MaxBaseFeeAfter(c.Params, c.NextBaseFee, k)
+}
+
 // MaxBaseFeeAfter is the base fee after k full blocks. Each raises it by max(1, fee*(elasticity-1)/denominator),
 // exactly NextBaseFee's rise when the gas limit is a multiple of the elasticity.
 func MaxBaseFeeAfter(params gasometer.FeeParams, baseFee *big.Int, k int) (*big.Int, error) {

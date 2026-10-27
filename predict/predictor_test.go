@@ -98,7 +98,7 @@ func TestGasometerPredictor(t *testing.T) {
 				Snapshot: snapshot(1_000, 999),
 				History:  history,
 				Horizon:  gasometer.Horizon{Seconds: 30, Blocks: tt.blocks},
-				Params:   &baseParams,
+				Ceiling:  baseCeiling,
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -106,7 +106,7 @@ func TestGasometerPredictor(t *testing.T) {
 			if !eqWei(bid.Tip, tt.tip) || !eqWei(bid.MaxFee, 1_200+tt.tip) || !eqWei(bid.ExpectedBaseFee, 1_050) {
 				t.Fatalf("got tip %s max %s expected %s", bid.Tip, bid.MaxFee, bid.ExpectedBaseFee)
 			}
-			if projector.got.Blocks != tt.blocks || projector.got.Params != &baseParams ||
+			if projector.got.Blocks != tt.blocks || projector.got.Ceiling != baseCeiling ||
 				!eqWei(projector.got.NextBaseFee, 1_000) || len(projector.got.History) != len(history) {
 				t.Fatalf("projector saw %+v", projector.got)
 			}

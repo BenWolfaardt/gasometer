@@ -17,7 +17,7 @@ Every 60 seconds, for each network, gasometer stores the fee data of every new b
 
 A bid lands if it beats the required tip of any one block in its horizon, so gasometer's tip targets the cheapest block of a window rather than a typical block. Backtested on ten hours of all three networks, that rule lands at least 98.7% of bids at every horizon.
 
-The gasometer predictor projects the base fee from the growth observed over the same span in the last hour, at its 0.99 quantile. On OP Stack networks that projection is capped by the protocol's worst case: each full block can raise the base fee by at most (elasticity − 1) ÷ denominator, which is 4% per block on Base and 0.4% on OP.
+The gasometer predictor projects the base fee from the growth observed over the same span in the last hour, at its 0.99 quantile. On OP Stack networks that projection is capped by the protocol's worst case: each full block can raise the base fee by at most (elasticity − 1) ÷ denominator, which is 4% per block on Base and 0.4% on OP. On C-Chain it is capped by the gas clock's worst case: the base fee after every block up to the horizon is full.
 
 Once the horizon has passed, each bid made at block n with a horizon of k blocks is scored against the blocks n+1 to n+k:
 
@@ -30,9 +30,11 @@ Once the horizon has passed, each bid made at block n with a horizon of k blocks
 
 A block's **required tip** is a percentile by gas of the tips it included: the 5th on Base and OP, because every OP Stack block opens with a zero-tip system transaction, and the 0th, the cheapest included tip, on C-Chain, whose blocks carry few transactions. Either way it is an upper bound on what inclusion needed, not a measurement of it; probe transactions will measure it directly. Costs are quoted in USD for a native transfer (21,000 gas) and an ERC-20 transfer (65,000 gas), split into base fee, tip and L1 data fee.
 
-**The fee model checks itself in production.** Every poll computes the next base fee from the latest header with gasometer's own EIP-1559 implementation, including the OP Stack's per-network parameters and Jovian's minimum base fee and metered gas, and compares it with the node's. A mismatch increments `gasometer_model_mismatch_total`, which should stay at zero. The same model is property-tested, fuzzed, checked against libevm's `CalcBaseFee`, and replayed against the last 500 Base and OP headers.
+**The fee model checks itself in production.** On Base and OP, every poll computes the next base fee from the latest header with gasometer's own EIP-1559 implementation, including the OP Stack's per-network parameters and Jovian's minimum base fee and metered gas, and compares it with the node's. The same model is property-tested, fuzzed, checked against libevm's `CalcBaseFee`, and replayed against the last 500 Base and OP headers.
 
-C-Chain runs Streaming Asynchronous Execution, whose base fee follows a gas clock gasometer does not yet model, so on C-Chain the gasometer predictor uses the empirical projection without a cap.
+C-Chain runs Streaming Asynchronous Execution, whose base fee follows a gas clock rather than EIP-1559. gasometer runs avalanchego's own clock (`vms/saevm/gastime`) over the blocks since the head's settled block, as a validator does when it builds a block, and every poll compares the result with the head's base fee. It matches all of the last 2,000 blocks, including those carrying atomic import and export transactions.
+
+On every network a mismatch increments `gasometer_model_mismatch_total`, which should stay at zero.
 
 ## Metrics
 
@@ -89,7 +91,7 @@ Migrations run at startup. Networks, RPC endpoints, Chainlink feeds, predictors,
 
 ## Development
 
-Requires Go 1.26.10, and Docker or Podman for the integration tests.
+Requires Go 1.26.10 with cgo and a C compiler, which avalanchego needs, and Docker or Podman for the integration tests.
 
 | Target | Runs |
 | --- | --- |
@@ -97,7 +99,7 @@ Requires Go 1.26.10, and Docker or Podman for the integration tests.
 | `make fuzz` | Every fuzz target, 10 s each by default |
 | `make lint` | `go vet` and golangci-lint |
 | `make test-db-up`, `make integration` | Postgres store tests and a start-stop run of the binary |
-| `make live` | Replays recent Base and OP headers against the fee model; needs network |
+| `make live` | Replays the last 500 Base and OP headers and the last 2,000 C-Chain blocks against the fee model; needs network |
 
 The code follows Ben Johnson's [Standard Package Layout](https://medium.com/@benbjohnson/standard-package-layout-7cdbc8391fc1):
 
@@ -108,13 +110,12 @@ The code follows Ben Johnson's [Standard Package Layout](https://medium.com/@ben
 | `predict` | The predictors and the base fee projectors they use |
 | `score` | Scoring a bid over a block window, and its USD costs |
 | `poll` | Each network's collect, forecast and settle cycle, pruning, and the loop that runs it |
-| `rpc`, `postgres`, `prometheus`, `http` | Adapters, one per dependency |
+| `rpc`, `sae`, `postgres`, `prometheus`, `http` | Adapters, one per dependency; `sae` runs avalanchego's SAE gas clock |
 | `mock` | Hand-written mocks of every port |
 | `cmd/gasometer` | Config and wiring |
 
 ## Roadmap
 
-- **Exact C-Chain base fee.** Model the Streaming Asynchronous Execution gas clock and cap C-Chain projections the way OP Stack ones are capped, validated by replaying headers until the computed base fee matches every block.
 - **Probe transactions.** A low-tip native transfer every hour on each network from a small funded wallet, timing its inclusion to measure the required tip directly rather than bounding it from other transactions.
 - **Bridge quotes.** Compare cross-chain bridge quotes against what the transfers actually cost.
 

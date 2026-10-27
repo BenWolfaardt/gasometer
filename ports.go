@@ -15,6 +15,21 @@ type FeeSource interface {
 	NodeTip(ctx context.Context) (*big.Int, error)
 }
 
+// SAESource reads Avalanche SAE blocks.
+type SAESource interface {
+	// SAEBlocks returns the block head settles through head, ascending.
+	SAEBlocks(ctx context.Context, head uint64) ([]SAEBlock, error)
+}
+
+// SAEModel computes Avalanche SAE base fees over a block's window: its settled block through itself, ascending.
+type SAEModel interface {
+	// BaseFee is the last block's own base fee.
+	BaseFee(blocks []SAEBlock) (*big.Int, error)
+	// NextBaseFee is the upper bound on the next block's base fee.
+	NextBaseFee(blocks []SAEBlock) (*big.Int, error)
+	Ceiling(blocks []SAEBlock) BaseFeeCeiling
+}
+
 // BlockStore persists per-block fee summaries.
 type BlockStore interface {
 	Upsert(ctx context.Context, network string, blocks []BlockFee) error
@@ -78,7 +93,7 @@ type PredictionInput struct {
 	Snapshot FeeSnapshot
 	History  []BlockFee // ascending, the growth window, ending at Snapshot.AtBlock
 	Horizon  Horizon
-	Params   *FeeParams // nil when no model applies
+	Ceiling  BaseFeeCeiling // nil when no model applies
 }
 
 // Predictor proposes a bid for a horizon.

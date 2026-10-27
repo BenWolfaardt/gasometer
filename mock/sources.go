@@ -68,3 +68,37 @@ type L1FeeSource struct {
 func (m *L1FeeSource) L1Fees(_ context.Context, txs []gasometer.ReferenceTx) (map[string]*big.Int, error) {
 	return m.L1FeesFn(txs)
 }
+
+var _ gasometer.SAESource = (*SAESource)(nil)
+
+// SAESource is a gasometer.SAESource driven by a function field.
+type SAESource struct {
+	SAEBlocksFn func(head uint64) ([]gasometer.SAEBlock, error)
+}
+
+// SAEBlocks implements gasometer.SAESource.
+func (m *SAESource) SAEBlocks(_ context.Context, head uint64) ([]gasometer.SAEBlock, error) {
+	return m.SAEBlocksFn(head)
+}
+
+var _ gasometer.SAEModel = (*SAEModel)(nil)
+
+// SAEModel is a gasometer.SAEModel driven by function fields.
+type SAEModel struct {
+	BaseFeeFn     func(blocks []gasometer.SAEBlock) (*big.Int, error)
+	NextBaseFeeFn func(blocks []gasometer.SAEBlock) (*big.Int, error)
+	CeilingFn     func(blocks []gasometer.SAEBlock) gasometer.BaseFeeCeiling
+}
+
+// BaseFee implements gasometer.SAEModel.
+func (m *SAEModel) BaseFee(blocks []gasometer.SAEBlock) (*big.Int, error) { return m.BaseFeeFn(blocks) }
+
+// NextBaseFee implements gasometer.SAEModel.
+func (m *SAEModel) NextBaseFee(blocks []gasometer.SAEBlock) (*big.Int, error) {
+	return m.NextBaseFeeFn(blocks)
+}
+
+// Ceiling implements gasometer.SAEModel.
+func (m *SAEModel) Ceiling(blocks []gasometer.SAEBlock) gasometer.BaseFeeCeiling {
+	return m.CeilingFn(blocks)
+}
