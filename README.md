@@ -7,7 +7,7 @@ gasometer measures how much fee estimators overpay to get a transaction included
 
 ![C-Chain's gas clock and base fee during a burst of full blocks](docs/sae-gas-clock.svg)
 
-*C-Chain's base fee during a burst of full blocks: each one raises it 12.2%, and it only falls once wall time catches the gas clock. From the [write-up](docs/sae-gas-pricing.md#2-the-gas-clock).*
+*C-Chain's base fee during a burst of full blocks: each one raises it 12.2%, and it only falls once wall time catches the gas clock. From the [write-up](docs/sae-gas-pricing.md#3-the-gas-clock).*
 
 ## Why
 
@@ -20,7 +20,7 @@ Fee estimates from nodes and wallets are tuned for safety, not cost, and on thes
 
 So the tip barely affects inclusion, yet people pay several times what they need. Nobody publishes how much a given estimator overpays, or how often its bid would have landed.
 
-These figures come from October 2026, a quiet market. When demand rises, as in a bull run, blocks fill up and the tip starts to decide who gets in, so expect the gap to narrow. Measuring it continuously is what shows when that happens.
+These figures come from October 2026, after validators raised C-Chain's minimum gas price to price out spam, in a quiet market. When demand rises, as in a bull run, blocks fill up and the tip starts to decide who gets in, so expect the gap to narrow. Measuring it continuously is what shows when that happens.
 
 ## How it works
 
@@ -35,7 +35,7 @@ These figures come from October 2026, a quiet market. When demand rises, as in a
 | `market` | median tip of the latest block: what senders are paying | 2 × next base fee + tip |
 | `gasometer` | 0.99 quantile of the cheapest required tip over recent windows as long as the horizon | projected base fee at the horizon + tip |
 
-A bid lands if it beats one block's required tip within its horizon, so gasometer targets the cheapest block in a window rather than a typical one. Backtested on ten hours of all three networks, that lands at least 98.7% of bids at every horizon. Its base fee projection is capped by each protocol's worst case: 4% per block on Base, 0.4% on OP, and on C-Chain [the gas clock's ceiling](docs/sae-gas-pricing.md#4-the-worst-case-bound).
+A bid lands if it beats one block's required tip within its horizon, so gasometer targets the cheapest block in a window rather than a typical one. Backtested on ten hours of all three networks, that lands at least 98.7% of bids at every horizon. Its base fee projection is capped by each protocol's worst case: 4% per block on Base, 0.4% on OP, and on C-Chain [the gas clock's ceiling](docs/sae-gas-pricing.md#5-the-worst-case-bound).
 
 ### Scoring
 
