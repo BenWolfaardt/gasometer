@@ -71,6 +71,8 @@ curl -s localhost:9090/metrics | grep gasometer_model_mismatch_total
 
 Import `deploy/grafana/gasometer.json` into Grafana and pick the Prometheus data source when asked. Its one chart splits each estimator's fee for a native transfer landing within 30 seconds into what the cheapest landing bid needed and what was overpaid, as a share of the fee. A strip under it turns red wherever a network stopped reporting.
 
+The JSON is generated. Edit `deploy/grafana/dashboard.py` instead and regenerate with `python3 deploy/grafana/dashboard.py deploy/grafana/gasometer.json`, which needs only the standard library.
+
 To be told when polling stops, install the alert rule with a service account token (Editor role) and the uid of the same data source. It fires after about 8 minutes without a completed poll on any network, or without any gasometer metrics at all.
 
 ```bash
