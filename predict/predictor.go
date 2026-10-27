@@ -32,7 +32,7 @@ func (*Node) Predict(in gasometer.PredictionInput) (gasometer.Bid, error) {
 	return baselineBid(in.Snapshot.NextBaseFee, in.Snapshot.NodeTip, 1)
 }
 
-// Wallet bids the node's tip with maxFeePerGas = 2 × next base fee + tip, the ethers and MetaMask default.
+// Wallet bids the node's tip with maxFeePerGas = 2 × next base fee + tip, the ethers and web3.js default.
 type Wallet struct{}
 
 // NewWallet builds the wallet predictor.
