@@ -13,4 +13,5 @@ var (
 	ErrInvalidConfig           = errors.New("invalid config")
 	ErrMalformedFeeHistory     = errors.New("malformed fee history")
 	ErrInvalidSAEBlocks        = errors.New("invalid SAE blocks")
+	ErrTxRejected              = errors.New("transaction rejected")
 )

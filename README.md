@@ -101,6 +101,7 @@ Requires Go 1.26.10 with cgo and a C compiler, which avalanchego needs, and Dock
 | `make fuzz` | Every fuzz target, 10 s each by default |
 | `make lint` | `go vet` and golangci-lint |
 | `make test-db-up`, `make integration` | Postgres store tests and a start-stop run of the binary |
+| `make probe` | Builds `bin/probe`, the tip ladder campaign |
 | `make live` | Replays the last 500 Base and OP headers and the last 10,000 C-Chain blocks against the fee model, and samples C-Chain's `eth_feeHistory`; needs network |
 
 The code follows Ben Johnson's [Standard Package Layout](https://medium.com/@benbjohnson/standard-package-layout-7cdbc8391fc1):
@@ -112,13 +113,15 @@ The code follows Ben Johnson's [Standard Package Layout](https://medium.com/@ben
 | `predict` | The predictors and the base fee projectors they use |
 | `score` | Scoring a bid over a block window, and its USD costs |
 | `poll` | Each network's collect, forecast and settle cycle, pruning, and the loop that runs it |
+| `probe` | The tip ladder: one account per tip, rounds, replacement at the same nonce, funding and sweeping |
 | `rpc`, `sae`, `postgres`, `prometheus`, `http` | Adapters, one per dependency; `sae` runs avalanchego's SAE gas clock |
 | `mock` | Hand-written mocks of every port |
 | `cmd/gasometer` | Config and wiring |
+| `cmd/probe` | The probe campaign: `fund`, `run` and `sweep`, with the key seed read from the environment. It writes to the service's database and never migrates it, so deploy the service first |
 
 ## Roadmap
 
-- **Probe transactions.** A low-tip native transfer every hour on each network from a small funded wallet, timing its inclusion to measure the required tip directly rather than bounding it from other transactions.
+- **Probe transactions.** `cmd/probe` sends eight zero-value transfers every 5 minutes at tips from 0 to 1 gwei, one account per tip, and records which were included and how fast, to measure the required tip directly rather than bounding it from other transactions. Built for C-Chain and not yet run; Base and OP follow with a key per network.
 - **Bridge quotes.** Compare cross-chain bridge quotes against what the transfers actually cost.
 
 ## Licence

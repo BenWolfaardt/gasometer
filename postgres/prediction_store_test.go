@@ -156,7 +156,7 @@ func TestPredictionStoreLifecycle(t *testing.T) {
 func TestMigrateIsIdempotent(t *testing.T) {
 	db := pgtest.NewDatabase(t)
 	var version int
-	if err := db.Get(&version, `SELECT version FROM schema_migrations`); err != nil || version != 1 {
+	if err := db.Get(&version, `SELECT version FROM schema_migrations`); err != nil || version != 2 {
 		t.Fatalf("version %d, err %v", version, err)
 	}
 }

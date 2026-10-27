@@ -26,6 +26,10 @@ build: ## Compile all packages and the gasometer binary into bin/
 	go build ./...
 	go build -o bin/gasometer ./cmd/gasometer
 
+.PHONY: probe
+probe: ## Compile the probe campaign binary into bin/
+	go build -o bin/probe ./cmd/probe
+
 .PHONY: test
 test: ## Run unit tests
 	go test ./...
