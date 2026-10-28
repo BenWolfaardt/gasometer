@@ -100,7 +100,7 @@ This starts gasometer, Postgres and Grafana Alloy under Docker Compose or `podma
 | Endpoints | `/metrics`, `/healthz` and `/readyz` on port 9090 |
 | Storage | Blocks for 30 days, snapshots and predictions kept, about 10 MB a day |
 
-The alert script reads `GRAFANA_URL`, `GRAFANA_TOKEN` (a service account with the Editor role) and `DATASOURCE_UID`.
+The alert script reads `GRAFANA_URL`, `GRAFANA_TOKEN` (a service account with the Admin role, which alert-rule provisioning requires) and `DATASOURCE_UID`.
 
 Without Compose, against your own Postgres (migrations run at startup):
 

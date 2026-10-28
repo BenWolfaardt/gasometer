@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installs alert-rule.json into a Grafana stack, replacing any earlier copy.
 #   GRAFANA_URL     e.g. https://<stack>.grafana.net
-#   GRAFANA_TOKEN   a service account token with the Editor role
+#   GRAFANA_TOKEN   a service account token with the Admin role (Editor gets 403 on alert-rule provisioning)
 #   DATASOURCE_UID  the Prometheus data source the dashboard uses
 set -euo pipefail
 
