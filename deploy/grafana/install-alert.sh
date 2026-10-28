@@ -13,8 +13,16 @@ api() {
 		-H "X-Disable-Provenance: true" "$@"
 }
 
-api -X POST "${GRAFANA_URL}/api/folders" -d '{"uid":"gasometer","title":"gasometer"}' >/dev/null 2>&1 || true
-api -X DELETE "${GRAFANA_URL}/api/v1/provisioning/alert-rules/gasometer-stalled" >/dev/null 2>&1 || true
+# Returns the HTTP status without failing on it, so each caller decides which statuses are fine.
+status() {
+	curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${GRAFANA_TOKEN}" \
+		-H "Content-Type: application/json" -H "X-Disable-Provenance: true" "$@"
+}
+
+code=$(status -X POST "${GRAFANA_URL}/api/folders" -d '{"uid":"gasometer","title":"gasometer"}')
+case "$code" in 200 | 409 | 412) ;; *) echo "create folder: HTTP ${code}" >&2 && exit 1 ;; esac
+code=$(status -X DELETE "${GRAFANA_URL}/api/v1/provisioning/alert-rules/gasometer-stalled")
+case "$code" in 200 | 204 | 404) ;; *) echo "delete old rule: HTTP ${code}" >&2 && exit 1 ;; esac
 sed "s/\${DATASOURCE_UID}/${DATASOURCE_UID}/" "${dir}/alert-rule.json" |
 	api -X POST "${GRAFANA_URL}/api/v1/provisioning/alert-rules" -d @- >/dev/null
 echo "installed gasometer-stalled"
