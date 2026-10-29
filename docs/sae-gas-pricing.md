@@ -251,6 +251,12 @@ Over 300 blocks on 27 October the chain used 0.75M gas/s, 9.4% of $R$, and 270 o
 - **The tip barely decides inclusion.** Blocks are nowhere near full, so any tip the builder accepts gets in. This is the overpay gasometer measures.
 - **The clock and the bound in section 5 matter in bursts.** A burst of full blocks starts from the floor and raises the fee 12.2% a block. SAE's first days are the only sustained period so far in which the clock set the price, and section 8 replays them.
 
+gasometer measures that overpay live, on its [public dashboard](https://ionsie.grafana.net/public-dashboards/f7aee50b6bb34f9e92f94ec700509cf8). Over the 24 hours to 29 October, a bid at the median tip on C-Chain overpaid by between about 20% and 70%, while the node's suggestion and gasometer's own bid stayed within a few percent of the cheapest bid that landed.
+
+![Share of each bid's fee paid above the cheapest bid that landed within 30 seconds, on C-Chain, Base and Optimism](dashboard-overpaid.png)
+
+*Share of each bid's fee paid above the cheapest bid that landed within 30 seconds, over a trailing hour, 28 to 29 October 2026.*
+
 The table and the samples come from one-off scripts against the public endpoint, not from the tests in section 8; the peak fees do come from those tests.
 
 ## 7. What the RPC returns

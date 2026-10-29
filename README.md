@@ -3,7 +3,7 @@
 > [!TIP]
 > **[How the C-Chain base fee works under SAE](docs/sae-gas-pricing.md).** gasometer replays avalanchego's gas clock and reproduces 10,000 of 10,000 mainnet base fees exactly. The write-up explains the clock, a provable ceiling on future fees, and why `eth_feeHistory` and `eth_baseFee` disagree.
 
-gasometer measures how much fee estimators overpay to get a transaction included, and how often their bids would actually have landed. It scores them continuously on Base, OP Mainnet and Avalanche C-Chain and publishes the results to a dashboard.
+gasometer measures how much fee estimators overpay to get a transaction included, and how often their bids would actually have landed. It scores them continuously on Base, OP Mainnet and Avalanche C-Chain and publishes the results to a [live dashboard](https://ionsie.grafana.net/public-dashboards/f7aee50b6bb34f9e92f94ec700509cf8).
 
 ![C-Chain's gas clock and base fee during a burst of full blocks](docs/sae-gas-clock.svg)
 
@@ -21,6 +21,36 @@ Fee estimates from nodes and wallets are tuned for safety, not cost, and on thes
 So the tip barely affects inclusion, yet people pay several times what they need. Nobody publishes how much a given estimator overpays, or how often its bid would have landed.
 
 These figures come from October 2026, after validators raised C-Chain's minimum gas price to price out spam, in a quiet market. When demand rises, as in a bull run, blocks fill up and the tip starts to decide who gets in, so expect the gap to narrow. Measuring it continuously is what shows when that happens.
+
+## First results
+
+Preliminary, from the first 27 hours of the live service: 2026-10-28 15:25 to 2026-10-29 18:53 UTC, 1,649 bids per predictor on each network. A native transfer, bidding to land within 30 seconds:
+
+| Network | Predictor | Landed | Mean fee paid | Overpaid |
+| --- | --- | --- | --- | --- |
+| Avalanche C-Chain | `market` | 99.6% | $0.0010 | 54% |
+| | `node` | 99.9% | $0.00047 | 0.5% |
+| | `gasometer` | 100% | $0.00047 | 0.6% |
+| Base | `market` | 100% | $0.00032 | 22% |
+| | `node` | 100% | $0.00030 | 17% |
+| | `gasometer` | 98.7% | $0.00025 | 0.1% |
+| Optimism | `market` | 100% | $0.000059 | 93% |
+| | `node` | 100% | $0.000053 | 92% |
+| | `gasometer` | 98.6% | $0.0000044 | under 0.1% |
+
+Overpaid is the share of the fee paid above the cheapest bid that landed in the same window. The required tip is an upper bound, so these are lower bounds. `wallet` bids the node's tip and lands and pays the same as `node`.
+
+The upper bound matters most at short horizons. C-Chain's node suggests a 150 wei tip, and only 38% of blocks include a tip that low, so its bids score as landing within 2 seconds just 62% of the time, although blocks are 2 to 3% full. [Probe transactions](#roadmap) will measure what inclusion actually needs.
+
+- **Optimism:** the node's suggested tip makes a transfer cost 12 times what landed. Almost all of the fee is tip that bought nothing.
+- **Base:** the node overpays by a sixth, and senders by a fifth.
+- **C-Chain:** the node's tip is close to the cheapest that landed, but senders pay 2.2 times it.
+- **gasometer** paid within 1% of the cheapest landing fee on every network, and missed 1.3% to 1.4% of bids on Base and Optimism.
+- **The fee models** matched each node's next base fee on every poll: zero mismatches.
+
+![Share of each bid's fee paid above the cheapest bid that landed within 30 seconds, on C-Chain, Base and Optimism](docs/dashboard-overpaid.png)
+
+*Overpaid share over a trailing hour, 28 to 29 October 2026. Live on the [public dashboard](https://ionsie.grafana.net/public-dashboards/f7aee50b6bb34f9e92f94ec700509cf8).*
 
 ## How it works
 

@@ -18,7 +18,7 @@
   ],
   "uid": "gasometer",
   "title": "gasometer",
-  "description": "How much of an EVM transaction fee was unnecessary, measured live on Base, Avalanche C-Chain and OP Mainnet.",
+  "description": "How much of an EVM transaction fee was unnecessary, measured live on Avalanche C-Chain, Base and Optimism.",
   "tags": [
     "gasometer",
     "evm",
@@ -26,7 +26,7 @@
   ],
   "timezone": "utc",
   "editable": true,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "refresh": "5m",
   "time": {
     "from": "now-24h",
@@ -49,27 +49,11 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 3
+        "h": 8
       },
-      "options": {
-        "mode": "markdown",
-        "content": "### How much of each transaction fee was unnecessary\nEvery minute, on each network, gasometer prices a native transfer three ways and checks which blocks it would have landed in within 30 seconds. **Red is what was paid above the cheapest price that landed.** The fee model is built on Avalanche's [libevm](https://github.com/ava-labs/libevm), and C-Chain's base fee on [avalanchego](https://github.com/ava-labs/avalanchego)'s SAE gas clock."
-      },
-      "id": 1
-    },
-    {
-      "type": "barchart",
-      "title": "Share of a native transfer's fee, bids landing within 30 s",
-      "description": "Each bar is 100% of what that bid paid, averaged over the selected range. Base fee, L1 data fee and the tip it needed are what the cheapest bid that landed in the same 30 s window paid; red is the rest. What senders pay is the median tip by gas of the latest block. Node's suggestion is eth_maxPriorityFeePerGas. gasometer bids the 0.99 quantile of the cheapest required tip in each recent 30 s window. The required tip is the 5th percentile tip by gas a block included (0th on C-Chain), an upper bound on what inclusion needed.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 3,
-        "w": 24,
-        "h": 12
       },
       "targets": [
         {
@@ -78,7 +62,52 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "refId": "A",
-          "expr": "label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(100 * ((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip it needed\", \"component\", \"tip\")) or (label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\"))) / on (network, predictor) group_left () sum by (network, predictor) ((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip it needed\", \"component\", \"tip\")) or (label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\"))), \"predictor\", \"What senders pay\", \"predictor\", \"market\"), \"predictor\", \"Node's suggestion\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\"), \"network\", \"Base\", \"network\", \"base\"), \"network\", \"Avalanche C-Chain\", \"network\", \"cchain\"), \"network\", \"OP Mainnet\", \"network\", \"op\"), \"bar\", \" · \", \"network\", \"predictor\")",
+          "expr": "vector(1)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "mode": "markdown",
+        "content": "### How much of each transaction fee was unnecessary\nEvery minute, on each network, gasometer prices a native transfer three ways and checks which blocks it would have landed in within 30 seconds. **Red is what was paid above the cheapest price that landed.**\n\n- **Market** bids the median tip of the latest block: what senders are paying.\n- **Node** bids the node's suggested tip, `eth_maxPriorityFeePerGas`.\n- **gasometer** bids the 0.99 quantile of the cheapest tip that landed in recent 30 s windows.\n- **Tip needed** is the 5th percentile tip a block included (the lowest on C-Chain), an upper bound on what inclusion needed.\n\nThe fee model is built on Avalanche's [libevm](https://github.com/ava-labs/libevm), and C-Chain's base fee on [avalanchego](https://github.com/ava-labs/avalanchego)'s SAE gas clock.\n\n**GitHub:** [`github.com/BenWolfaardt/gasometer`](https://github.com/BenWolfaardt/gasometer)"
+      },
+      "id": 1
+    },
+    {
+      "type": "row",
+      "title": "Share of the fee that was overpaid",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [],
+      "id": 2
+    },
+    {
+      "type": "barchart",
+      "title": "Avalanche C-Chain",
+      "description": "Each bar is 100% of what that bid paid, averaged over the selected range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "expr": "label_replace(label_replace(label_replace(100 * ((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip needed\", \"component\", \"tip\")) or label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Base fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"L1 data fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Tip needed\", \"\", \"\")) / on (network, predictor) group_left () sum by (network, predictor) ((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip needed\", \"component\", \"tip\")) or label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Base fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"L1 data fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Tip needed\", \"\", \"\")), \"predictor\", \"Market\", \"predictor\", \"market\"), \"predictor\", \"Node\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\")",
           "format": "table",
           "instant": true,
           "range": false
@@ -89,7 +118,7 @@
           "id": "groupingToMatrix",
           "options": {
             "columnField": "component",
-            "rowField": "bar",
+            "rowField": "predictor",
             "valueField": "Value",
             "emptyValue": "zero"
           }
@@ -98,21 +127,542 @@
           "id": "organize",
           "options": {
             "indexByName": {
-              "bar\\component": 0,
+              "predictor\\component": 0,
               "Base fee": 1,
               "L1 data fee": 2,
-              "Tip it needed": 3,
+              "Tip needed": 3,
               "Overpaid": 4
             }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "predictor\\component"
+              }
+            ]
           }
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "decimals": 1,
+          "decimals": 0,
           "min": 0,
           "max": 100,
+          "custom": {
+            "fillOpacity": 90,
+            "lineWidth": 0,
+            "axisPlacement": "hidden"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Base fee"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "L1 data fee"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tip needed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Overpaid"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "predictor\\component"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "auto"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "normal",
+        "xField": "predictor\\component",
+        "showValue": "never",
+        "groupWidth": 0.8,
+        "barWidth": 0.9,
+        "fullHighlight": false,
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 3
+    },
+    {
+      "type": "barchart",
+      "title": "Base",
+      "description": "Each bar is 100% of what that bid paid, averaged over the selected range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 9,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "expr": "label_replace(label_replace(label_replace(100 * ((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip needed\", \"component\", \"tip\")) or label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Base fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"L1 data fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Tip needed\", \"\", \"\")) / on (network, predictor) group_left () sum by (network, predictor) ((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip needed\", \"component\", \"tip\")) or label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Base fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"L1 data fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Tip needed\", \"\", \"\")), \"predictor\", \"Market\", \"predictor\", \"market\"), \"predictor\", \"Node\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\")",
+          "format": "table",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "component",
+            "rowField": "predictor",
+            "valueField": "Value",
+            "emptyValue": "zero"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "predictor\\component": 0,
+              "Base fee": 1,
+              "L1 data fee": 2,
+              "Tip needed": 3,
+              "Overpaid": 4
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "predictor\\component"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "fillOpacity": 90,
+            "lineWidth": 0,
+            "axisPlacement": "hidden"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Base fee"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "L1 data fee"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tip needed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Overpaid"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "predictor\\component"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "auto"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "normal",
+        "xField": "predictor\\component",
+        "showValue": "never",
+        "groupWidth": 0.8,
+        "barWidth": 0.9,
+        "fullHighlight": false,
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 4
+    },
+    {
+      "type": "barchart",
+      "title": "Optimism",
+      "description": "Each bar is 100% of what that bid paid, averaged over the selected range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 9,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "expr": "label_replace(label_replace(label_replace(100 * ((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip needed\", \"component\", \"tip\")) or label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Base fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"L1 data fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Tip needed\", \"\", \"\")) / on (network, predictor) group_left () sum by (network, predictor) ((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip needed\", \"component\", \"tip\")) or label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Base fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"L1 data fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Tip needed\", \"\", \"\")), \"predictor\", \"Market\", \"predictor\", \"market\"), \"predictor\", \"Node\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\")",
+          "format": "table",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "component",
+            "rowField": "predictor",
+            "valueField": "Value",
+            "emptyValue": "zero"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "predictor\\component": 0,
+              "Base fee": 1,
+              "L1 data fee": 2,
+              "Tip needed": 3,
+              "Overpaid": 4
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "predictor\\component"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "fillOpacity": 90,
+            "lineWidth": 0,
+            "axisPlacement": "hidden"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Base fee"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "L1 data fee"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tip needed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Overpaid"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "predictor\\component"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "auto"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "normal",
+        "xField": "predictor\\component",
+        "showValue": "never",
+        "groupWidth": 0.8,
+        "barWidth": 0.9,
+        "fullHighlight": false,
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "row",
+      "title": "Cost per transfer, in USD",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [],
+      "id": 6
+    },
+    {
+      "type": "barchart",
+      "title": "Avalanche C-Chain",
+      "description": "Mean USD per native transfer, averaged over the selected range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "expr": "label_replace(label_replace(label_replace((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip needed\", \"component\", \"tip\")) or label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Base fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"L1 data fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Tip needed\", \"\", \"\"), \"predictor\", \"Market\", \"predictor\", \"market\"), \"predictor\", \"Node\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\")",
+          "format": "table",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "component",
+            "rowField": "predictor",
+            "valueField": "Value",
+            "emptyValue": "zero"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "predictor\\component": 0,
+              "Base fee": 1,
+              "L1 data fee": 2,
+              "Tip needed": 3,
+              "Overpaid": 4
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "predictor\\component"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
           "custom": {
             "fillOpacity": 90,
             "lineWidth": 0
@@ -152,7 +702,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Tip it needed"
+              "options": "Tip needed"
             },
             "properties": [
               {
@@ -178,13 +728,25 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "predictor\\component"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "auto"
+              }
+            ]
           }
         ]
       },
       "options": {
         "orientation": "horizontal",
         "stacking": "normal",
-        "xField": "bar\\component",
+        "xField": "predictor\\component",
         "showValue": "never",
         "groupWidth": 0.8,
         "barWidth": 0.9,
@@ -199,20 +761,921 @@
           "sort": "none"
         }
       },
-      "id": 2
+      "id": 7
+    },
+    {
+      "type": "barchart",
+      "title": "Base",
+      "description": "Mean USD per native transfer, averaged over the selected range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 19,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "expr": "label_replace(label_replace(label_replace((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip needed\", \"component\", \"tip\")) or label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Base fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"L1 data fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Tip needed\", \"\", \"\"), \"predictor\", \"Market\", \"predictor\", \"market\"), \"predictor\", \"Node\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\")",
+          "format": "table",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "component",
+            "rowField": "predictor",
+            "valueField": "Value",
+            "emptyValue": "zero"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "predictor\\component": 0,
+              "Base fee": 1,
+              "L1 data fee": 2,
+              "Tip needed": 3,
+              "Overpaid": 4
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "predictor\\component"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {
+            "fillOpacity": 90,
+            "lineWidth": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Base fee"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "L1 data fee"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tip needed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Overpaid"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "predictor\\component"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "auto"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "normal",
+        "xField": "predictor\\component",
+        "showValue": "never",
+        "groupWidth": 0.8,
+        "barWidth": 0.9,
+        "fullHighlight": false,
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 8
+    },
+    {
+      "type": "barchart",
+      "title": "Optimism",
+      "description": "Mean USD per native transfer, averaged over the selected range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 19,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "expr": "label_replace(label_replace(label_replace((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip needed\", \"component\", \"tip\")) or label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Base fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"L1 data fee\", \"\", \"\") or label_replace(0 * (sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range]))), \"component\", \"Tip needed\", \"\", \"\"), \"predictor\", \"Market\", \"predictor\", \"market\"), \"predictor\", \"Node\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\")",
+          "format": "table",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "component",
+            "rowField": "predictor",
+            "valueField": "Value",
+            "emptyValue": "zero"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "predictor\\component": 0,
+              "Base fee": 1,
+              "L1 data fee": 2,
+              "Tip needed": 3,
+              "Overpaid": 4
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "predictor\\component"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {
+            "fillOpacity": 90,
+            "lineWidth": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Base fee"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "L1 data fee"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tip needed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Overpaid"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "predictor\\component"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "auto"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "normal",
+        "xField": "predictor\\component",
+        "showValue": "never",
+        "groupWidth": 0.8,
+        "barWidth": 0.9,
+        "fullHighlight": false,
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 9
+    },
+    {
+      "type": "row",
+      "title": "Overpaid over time",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [],
+      "id": 10
+    },
+    {
+      "type": "timeseries",
+      "title": "Avalanche C-Chain",
+      "description": "The red share of each bar, over the trailing hour.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "interval": "5m",
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "expr": "label_replace(label_replace(label_replace(100 * sum by (predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[1h])) / sum by (predictor) (increase(gasometer_paid_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[1h])), \"predictor\", \"Market\", \"predictor\", \"market\"), \"predictor\", \"Node\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\")",
+          "legendFormat": "{{predictor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Market"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Node"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "gasometer"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11
+    },
+    {
+      "type": "timeseries",
+      "title": "Base",
+      "description": "The red share of each bar, over the trailing hour.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "interval": "5m",
+      "gridPos": {
+        "x": 8,
+        "y": 29,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "expr": "label_replace(label_replace(label_replace(100 * sum by (predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[1h])) / sum by (predictor) (increase(gasometer_paid_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[1h])), \"predictor\", \"Market\", \"predictor\", \"market\"), \"predictor\", \"Node\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\")",
+          "legendFormat": "{{predictor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Market"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Node"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "gasometer"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12
+    },
+    {
+      "type": "timeseries",
+      "title": "Optimism",
+      "description": "The red share of each bar, over the trailing hour.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "interval": "5m",
+      "gridPos": {
+        "x": 16,
+        "y": 29,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "expr": "label_replace(label_replace(label_replace(100 * sum by (predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[1h])) / sum by (predictor) (increase(gasometer_paid_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[1h])), \"predictor\", \"Market\", \"predictor\", \"market\"), \"predictor\", \"Node\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\")",
+          "legendFormat": "{{predictor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Market"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Node"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "gasometer"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13
+    },
+    {
+      "type": "row",
+      "title": "Service health",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [],
+      "id": 14
+    },
+    {
+      "type": "stat",
+      "title": "Fee model mismatches",
+      "description": "Polls where gasometer's next base fee differed from the node's. Expected 0.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 8,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "legendFormat": "C-Chain",
+          "instant": true,
+          "range": false,
+          "expr": "sum (increase(gasometer_model_mismatch_total{network=\"cchain\"}[$__range]))"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "B",
+          "legendFormat": "Base",
+          "instant": true,
+          "range": false,
+          "expr": "sum (increase(gasometer_model_mismatch_total{network=\"base\"}[$__range]))"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "C",
+          "legendFormat": "Optimism",
+          "instant": true,
+          "range": false,
+          "expr": "sum (increase(gasometer_model_mismatch_total{network=\"op\"}[$__range]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "textMode": "value_and_name"
+      },
+      "id": 15
+    },
+    {
+      "type": "stat",
+      "title": "Since last poll",
+      "description": "Seconds since each network's last poll. Polls run every 60 s.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 38,
+        "w": 8,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "legendFormat": "C-Chain",
+          "instant": true,
+          "range": false,
+          "expr": "time() - max (gasometer_last_poll_timestamp_seconds{network=\"cchain\"})"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "B",
+          "legendFormat": "Base",
+          "instant": true,
+          "range": false,
+          "expr": "time() - max (gasometer_last_poll_timestamp_seconds{network=\"base\"})"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "C",
+          "legendFormat": "Optimism",
+          "instant": true,
+          "range": false,
+          "expr": "time() - max (gasometer_last_poll_timestamp_seconds{network=\"op\"})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: s",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 180
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "textMode": "value_and_name"
+      },
+      "id": 16
+    },
+    {
+      "type": "stat",
+      "title": "Settled bids",
+      "description": "Bids scored over the selected range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 38,
+        "w": 8,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "legendFormat": "C-Chain",
+          "instant": true,
+          "range": false,
+          "expr": "sum (increase(gasometer_predictions_resolved_total{network=\"cchain\",outcome=~\"included|missed\"}[$__range]))"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "B",
+          "legendFormat": "Base",
+          "instant": true,
+          "range": false,
+          "expr": "sum (increase(gasometer_predictions_resolved_total{network=\"base\",outcome=~\"included|missed\"}[$__range]))"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "C",
+          "legendFormat": "Optimism",
+          "instant": true,
+          "range": false,
+          "expr": "sum (increase(gasometer_predictions_resolved_total{network=\"op\",outcome=~\"included|missed\"}[$__range]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "textMode": "value_and_name"
+      },
+      "id": 17
+    },
+    {
+      "type": "row",
+      "title": "Data collected",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 43,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [],
+      "id": 18
     },
     {
       "type": "state-timeline",
-      "title": "Data collected",
+      "title": "",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "interval": "3m",
-      "description": "Green while a network completes polls. Red where polls stalled or no data arrived, so the bars above cover less of the range.",
+      "description": "Red where polls stalled, so the charts cover less of the range.",
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 44,
         "w": 24,
         "h": 4
       },
@@ -223,7 +1686,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "refId": "A",
-          "expr": "label_replace(label_replace(label_replace(max by (network) (changes(gasometer_last_poll_timestamp_seconds[$__interval]) > bool 0), \"network\", \"Base\", \"network\", \"base\"), \"network\", \"Avalanche C-Chain\", \"network\", \"cchain\"), \"network\", \"OP Mainnet\", \"network\", \"op\")",
+          "expr": "label_replace(label_replace(label_replace(max by (network) (changes(gasometer_last_poll_timestamp_seconds[$__interval]) > bool 0), \"network\", \"Avalanche C-Chain\", \"network\", \"cchain\"), \"network\", \"Base\", \"network\", \"base\"), \"network\", \"Optimism\", \"network\", \"op\")",
           "legendFormat": "{{network}}"
         }
       ],
@@ -282,631 +1745,7 @@
           "sort": "none"
         }
       },
-      "id": 3
-    },
-    {
-      "type": "row",
-      "title": "The same, in USD",
-      "collapsed": true,
-      "gridPos": {
-        "x": 0,
-        "y": 19,
-        "w": 24,
-        "h": 1
-      },
-      "panels": [
-        {
-          "type": "barchart",
-          "title": "Base",
-          "description": "Mean USD per native transfer landing within 30 s.",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "gridPos": {
-            "x": 0,
-            "y": 20,
-            "w": 8,
-            "h": 8
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "refId": "A",
-              "expr": "label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip it needed\", \"component\", \"tip\")) or (label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"base\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\")), \"predictor\", \"What senders pay\", \"predictor\", \"market\"), \"predictor\", \"Node's suggestion\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\"), \"network\", \"Base\", \"network\", \"base\"), \"network\", \"Avalanche C-Chain\", \"network\", \"cchain\"), \"network\", \"OP Mainnet\", \"network\", \"op\"), \"bar\", \"\", \"predictor\")",
-              "format": "table",
-              "instant": true,
-              "range": false
-            }
-          ],
-          "transformations": [
-            {
-              "id": "groupingToMatrix",
-              "options": {
-                "columnField": "component",
-                "rowField": "bar",
-                "valueField": "Value",
-                "emptyValue": "zero"
-              }
-            },
-            {
-              "id": "organize",
-              "options": {
-                "indexByName": {
-                  "bar\\component": 0,
-                  "Base fee": 1,
-                  "L1 data fee": 2,
-                  "Tip it needed": 3,
-                  "Overpaid": 4
-                }
-              }
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "currencyUSD",
-              "decimals": 6,
-              "custom": {
-                "fillOpacity": 90,
-                "lineWidth": 0
-              }
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Base fee"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#5794F2"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "L1 data fee"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#B877D9"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Tip it needed"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#73BF69"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Overpaid"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#F2495C"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "options": {
-            "orientation": "horizontal",
-            "stacking": "normal",
-            "xField": "bar\\component",
-            "showValue": "never",
-            "groupWidth": 0.8,
-            "barWidth": 0.9,
-            "fullHighlight": false,
-            "legend": {
-              "showLegend": true,
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "id": 5
-        },
-        {
-          "type": "barchart",
-          "title": "Avalanche C-Chain",
-          "description": "Mean USD per native transfer landing within 30 s.",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "gridPos": {
-            "x": 8,
-            "y": 20,
-            "w": 8,
-            "h": 8
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "refId": "A",
-              "expr": "label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip it needed\", \"component\", \"tip\")) or (label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"cchain\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\")), \"predictor\", \"What senders pay\", \"predictor\", \"market\"), \"predictor\", \"Node's suggestion\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\"), \"network\", \"Base\", \"network\", \"base\"), \"network\", \"Avalanche C-Chain\", \"network\", \"cchain\"), \"network\", \"OP Mainnet\", \"network\", \"op\"), \"bar\", \"\", \"predictor\")",
-              "format": "table",
-              "instant": true,
-              "range": false
-            }
-          ],
-          "transformations": [
-            {
-              "id": "groupingToMatrix",
-              "options": {
-                "columnField": "component",
-                "rowField": "bar",
-                "valueField": "Value",
-                "emptyValue": "zero"
-              }
-            },
-            {
-              "id": "organize",
-              "options": {
-                "indexByName": {
-                  "bar\\component": 0,
-                  "Base fee": 1,
-                  "L1 data fee": 2,
-                  "Tip it needed": 3,
-                  "Overpaid": 4
-                }
-              }
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "currencyUSD",
-              "decimals": 6,
-              "custom": {
-                "fillOpacity": 90,
-                "lineWidth": 0
-              }
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Base fee"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#5794F2"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "L1 data fee"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#B877D9"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Tip it needed"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#73BF69"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Overpaid"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#F2495C"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "options": {
-            "orientation": "horizontal",
-            "stacking": "normal",
-            "xField": "bar\\component",
-            "showValue": "never",
-            "groupWidth": 0.8,
-            "barWidth": 0.9,
-            "fullHighlight": false,
-            "legend": {
-              "showLegend": false,
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "id": 6
-        },
-        {
-          "type": "barchart",
-          "title": "OP Mainnet",
-          "description": "Mean USD per native transfer landing within 30 s.",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "gridPos": {
-            "x": 16,
-            "y": 20,
-            "w": 8,
-            "h": 8
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "refId": "A",
-              "expr": "label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace((label_replace(label_replace(label_replace(sum by (network, predictor, component) (increase(gasometer_required_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor, component) (increase(gasometer_required_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Base fee\", \"component\", \"base_fee\"), \"component\", \"L1 data fee\", \"component\", \"l1_fee\"), \"component\", \"Tip it needed\", \"component\", \"tip\")) or (label_replace(sum by (network, predictor) (increase(gasometer_overpay_usd_sum{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])) / sum by (network, predictor) (increase(gasometer_overpay_usd_count{network=\"op\",tx=\"native\",horizon=\"30s\",predictor=~\"market|node|gasometer\"}[$__range])), \"component\", \"Overpaid\", \"\", \"\")), \"predictor\", \"What senders pay\", \"predictor\", \"market\"), \"predictor\", \"Node's suggestion\", \"predictor\", \"node\"), \"predictor\", \"gasometer\", \"predictor\", \"gasometer\"), \"network\", \"Base\", \"network\", \"base\"), \"network\", \"Avalanche C-Chain\", \"network\", \"cchain\"), \"network\", \"OP Mainnet\", \"network\", \"op\"), \"bar\", \"\", \"predictor\")",
-              "format": "table",
-              "instant": true,
-              "range": false
-            }
-          ],
-          "transformations": [
-            {
-              "id": "groupingToMatrix",
-              "options": {
-                "columnField": "component",
-                "rowField": "bar",
-                "valueField": "Value",
-                "emptyValue": "zero"
-              }
-            },
-            {
-              "id": "organize",
-              "options": {
-                "indexByName": {
-                  "bar\\component": 0,
-                  "Base fee": 1,
-                  "L1 data fee": 2,
-                  "Tip it needed": 3,
-                  "Overpaid": 4
-                }
-              }
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "currencyUSD",
-              "decimals": 6,
-              "custom": {
-                "fillOpacity": 90,
-                "lineWidth": 0
-              }
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Base fee"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#5794F2"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "L1 data fee"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#B877D9"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Tip it needed"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#73BF69"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Overpaid"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#F2495C"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "options": {
-            "orientation": "horizontal",
-            "stacking": "normal",
-            "xField": "bar\\component",
-            "showValue": "never",
-            "groupWidth": 0.8,
-            "barWidth": 0.9,
-            "fullHighlight": false,
-            "legend": {
-              "showLegend": false,
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "id": 7
-        }
-      ],
-      "id": 4
-    },
-    {
-      "type": "row",
-      "title": "Service health",
-      "collapsed": true,
-      "gridPos": {
-        "x": 0,
-        "y": 28,
-        "w": 24,
-        "h": 1
-      },
-      "panels": [
-        {
-          "type": "stat",
-          "title": "Fee model mismatches",
-          "description": "Polls where gasometer's next base fee differed from the node's. Expected 0.",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "gridPos": {
-            "x": 0,
-            "y": 29,
-            "w": 8,
-            "h": 5
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "refId": "A",
-              "expr": "sum by (network) (increase(gasometer_model_mismatch_total[$__range]))",
-              "legendFormat": "{{network}}",
-              "instant": true,
-              "range": false
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "none",
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ]
-            },
-            "colorMode": "background",
-            "textMode": "value_and_name"
-          },
-          "id": 9
-        },
-        {
-          "type": "stat",
-          "title": "Since last poll",
-          "description": "Seconds since each network's last completed poll. Polls run every 60 s.",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "gridPos": {
-            "x": 8,
-            "y": 29,
-            "w": 8,
-            "h": 5
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "refId": "A",
-              "expr": "time() - gasometer_last_poll_timestamp_seconds",
-              "legendFormat": "{{network}}",
-              "instant": true,
-              "range": false
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "s",
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 180
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ]
-            },
-            "colorMode": "background",
-            "textMode": "value_and_name"
-          },
-          "id": 10
-        },
-        {
-          "type": "stat",
-          "title": "Settled bids",
-          "description": "Bids scored over the selected range.",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "gridPos": {
-            "x": 16,
-            "y": 29,
-            "w": 8,
-            "h": 5
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "refId": "A",
-              "expr": "sum by (network) (increase(gasometer_predictions_resolved_total{outcome=~\"included|missed\"}[$__range]))",
-              "legendFormat": "{{network}}",
-              "instant": true,
-              "range": false
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "none",
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "blue",
-                    "value": null
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ]
-            },
-            "colorMode": "background",
-            "textMode": "value_and_name"
-          },
-          "id": 11
-        }
-      ],
-      "id": 8
+      "id": 19
     }
   ]
 }
