@@ -177,6 +177,7 @@ func TestValidation(t *testing.T) {
 		{"price max age", nil, [2]string{"price-max-age: 1h", "price-max-age: 0s"}, errInvalidPriceMaxAge},
 		{"tip percentile", nil, [2]string{"history-depth: 100000", "history-depth: 100000\n    required-tip-percentile: 101"}, errInvalidTipPercentile},
 		{"history depth", nil, [2]string{"history-depth: 100000", "history-depth: 0"}, errInvalidHistoryDepth},
+		{"batch beyond depth", nil, [2]string{"history-depth: 100000", "history-depth: 1023"}, errBatchBeyondDepth},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

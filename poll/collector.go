@@ -26,6 +26,7 @@ type CollectorParams struct {
 	RequiredTipPercentile float64 // eth_feeHistory percentile taken as the required tip
 	PriceMaxAge           time.Duration
 	InitialBackfill       uint64 // blocks fetched on a first run
+	Chunk                 uint64 // most blocks a later poll fetches; anything older is left to the backfiller
 }
 
 // CollectorDeps are a collector's collaborators. Prices and L1Fees may be nil, and SAE and SAEModel are nil except on
@@ -105,7 +106,8 @@ func (c *Collector) Collect(ctx context.Context) (Observation, error) {
 	return Observation{Snapshot: snapshot, Head: head, Ceiling: ceiling}, nil
 }
 
-// firstBlock is the block after the latest stored, or the start of the initial backfill on a first run.
+// firstBlock is the block after the latest stored, but no more than a chunk behind head, or the start of the initial
+// backfill on a first run.
 func (c *Collector) firstBlock(ctx context.Context, head uint64) (uint64, error) {
 	latest, ok, err := c.deps.Blocks.Latest(ctx, c.network.Name)
 	switch {
@@ -116,7 +118,7 @@ func (c *Collector) firstBlock(ctx context.Context, head uint64) (uint64, error)
 	case latest >= head:
 		return head, nil
 	default:
-		return latest + 1, nil
+		return max(latest+1, blocksBack(head, c.params.Chunk)), nil
 	}
 }
 
@@ -138,10 +140,6 @@ func (c *Collector) storeBlocks(ctx context.Context, from, head uint64, observed
 	if n == 0 || history.OldestBlock < from || history.OldestBlock+n-1 != head {
 		return gasometer.BlockFee{}, nil, fmt.Errorf("%w: asked for %d to %d, got %d blocks from %d",
 			gasometer.ErrMalformedFeeHistory, from, head, n, history.OldestBlock)
-	}
-	if history.OldestBlock > from {
-		c.log.Warn("blocks beyond the RPC history depth are lost; predictions spanning them become unresolvable",
-			"from", from, "to", history.OldestBlock-1)
 	}
 	blocks, missing, err := fee.BlockFees(history, observedAt)
 	if err != nil {

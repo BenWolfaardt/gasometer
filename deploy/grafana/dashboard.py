@@ -144,7 +144,7 @@ row("Service health")
 
 def stat(title, x, expr, description, unit, steps):
     return {"type": "stat", "title": title, "description": description, "datasource": DS,
-            "gridPos": {"x": x, "y": y, "w": 8, "h": 5},
+            "gridPos": {"x": x, "y": y, "w": 6, "h": 5},
             "targets": [{"datasource": DS, "refId": chr(ord("A") + i), "legendFormat": name.removeprefix("Avalanche "),
                          "instant": True,
                          "range": False, "expr": expr.replace("NETWORK", f'network="{net}"')}
@@ -158,11 +158,14 @@ def stat(title, x, expr, description, unit, steps):
 green_red = lambda red: [{"color": "green", "value": None}, {"color": "red", "value": red}]
 add(stat("Fee model mismatches", 0, "sum (increase(gasometer_model_mismatch_total{NETWORK}[$__range]))",
          "Polls where gasometer's next base fee differed from the node's. Expected 0.", "none", green_red(1)))
-add(stat("Since last poll", 8, "time() - max (gasometer_last_poll_timestamp_seconds{NETWORK})",
+add(stat("Since last poll", 6, "time() - max (gasometer_last_poll_timestamp_seconds{NETWORK})",
          "Seconds since each network's last poll. Polls run every 60 s.", "suffix: s", green_red(180)))
-add(stat("Settled bids", 16,
+add(stat("Settled bids", 12,
          'sum (increase(gasometer_predictions_resolved_total{NETWORK,outcome=~"included|missed"}[$__range]))',
          "Bids scored over the selected range.", "none", [{"color": "blue", "value": None}]))
+add(stat("Blocks lost", 18, "sum (increase(gasometer_blocks_lost_total{NETWORK}[$__range]))",
+         "Blocks an outage left past the RPC's history depth, so they will never be stored. Expected 0.", "none",
+         green_red(1)))
 y += 5
 
 row("Data collected")

@@ -132,3 +132,54 @@ func TestBlockStorePrune(t *testing.T) {
 		t.Fatal("op blocks pruned")
 	}
 }
+
+func TestBlockStoreHoles(t *testing.T) {
+	store := postgres.NewBlockStore(pgtest.NewDatabase(t))
+	ctx := t.Context()
+	upsert := func(from, to uint64) {
+		t.Helper()
+		if err := store.Upsert(ctx, "base", blockRange(from, to, t0)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got, err := store.Holes(ctx, "base", 0); err != nil || len(got) != 0 {
+		t.Fatalf("empty store: %v, err %v", got, err)
+	}
+	upsert(100, 200)
+	if got, err := store.Holes(ctx, "base", 0); err != nil || len(got) != 0 {
+		t.Fatalf("contiguous: %v, err %v", got, err)
+	}
+	upsert(300, 310)
+	upsert(312, 400)
+	if err := store.Upsert(ctx, "op", blockRange(201, 299, t0)); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name  string
+		above uint64
+		want  []gasometer.BlockRange
+	}{
+		{"several, ascending, not below the first stored", 0, []gasometer.BlockRange{{From: 201, To: 299}, {From: 311, To: 311}}},
+		{"from a stored block at the cursor", 200, []gasometer.BlockRange{{From: 201, To: 299}, {From: 311, To: 311}}},
+		{"cursor inside a hole keeps the rest of it", 250, []gasometer.BlockRange{{From: 251, To: 299}, {From: 311, To: 311}}},
+		{"cursor at a hole's last block", 299, []gasometer.BlockRange{{From: 311, To: 311}}},
+		{"none above the last hole", 311, nil},
+		{"none above every stored block", 1_000, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := store.Holes(ctx, "base", tt.above)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("holes %v, want %v", got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Fatalf("holes %v, want %v", got, tt.want)
+				}
+			}
+		})
+	}
+}

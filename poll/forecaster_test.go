@@ -123,10 +123,39 @@ func TestForecasterSkipsPredictorsWithoutHistory(t *testing.T) {
 	}
 }
 
+func TestForecasterWaitsForAHoleToFill(t *testing.T) {
+	tests := []struct {
+		name   string
+		stored [][2]uint64
+		want   int
+	}{
+		{"hole inside the window", [][2]uint64{{1, 4_000}, {4_100, 5_000}}, 0},
+		{"head missing", [][2]uint64{{1, 4_999}}, 0},
+		{"hole below the window start only shortens it", [][2]uint64{{1, 100}, {4_990, 5_000}}, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			blocks := mock.NewBlockStore()
+			blocks.AvgTime["base"] = 2 * time.Second
+			for _, r := range tt.stored {
+				storeBlocks(t, blocks, r[0], r[1])
+			}
+			predictions := &mock.PredictionStore{}
+			n, err := poll.NewForecaster("base", []int{2}, gasometerParams, poll.ForecasterDeps{
+				Predictors: []gasometer.Predictor{predict.NewNode()}, Blocks: blocks, Predictions: predictions, Log: nopLog,
+			}).Forecast(t.Context(), observation(5_000))
+			if err != nil || n != tt.want || len(predictions.Predictions) != tt.want {
+				t.Fatalf("n %d, err %v, want %d", n, err, tt.want)
+			}
+		})
+	}
+}
+
 func TestForecasterStoreErrors(t *testing.T) {
 	boom := errors.New("boom")
 	blocks := mock.NewBlockStore()
 	blocks.AvgTime["base"] = 2 * time.Second
+	storeBlocks(t, blocks, 4_990, 5_000)
 	_, err := poll.NewForecaster("base", []int{2}, gasometerParams, poll.ForecasterDeps{
 		Predictors: []gasometer.Predictor{predict.NewNode()}, Blocks: blocks,
 		Predictions: &mock.PredictionStore{Err: boom}, Log: nopLog,

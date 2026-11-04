@@ -294,6 +294,7 @@ var (
 	errInvalidPriceMaxAge     = invalid("price max age must be positive")
 	errInvalidTipPercentile   = invalid("required tip percentile must be in [0, 100]")
 	errInvalidHistoryDepth    = invalid("history depth and fee history batch must be at least 1")
+	errBatchBeyondDepth       = invalid("fee history batch must not exceed history depth")
 	errDecodeList             = invalid("decode config list")
 )
 
@@ -506,6 +507,10 @@ func validateNetwork(n networkConfig) error {
 	}
 	if n.HistoryDepth < 1 || n.FeeHistoryBatch < 1 || n.InitialBackfill < 1 {
 		return fmt.Errorf("%w: depth %d, batch %d, backfill %d", errInvalidHistoryDepth, n.HistoryDepth, n.FeeHistoryBatch, n.InitialBackfill)
+	}
+	// The live poll fetches one batch, which must lie within the depth or it would lose blocks of its own.
+	if n.FeeHistoryBatch > n.HistoryDepth {
+		return fmt.Errorf("%w: batch %d, depth %d", errBatchBeyondDepth, n.FeeHistoryBatch, n.HistoryDepth)
 	}
 	return nil
 }

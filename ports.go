@@ -9,7 +9,7 @@ import (
 // FeeSource reads one network's fee data.
 type FeeSource interface {
 	// FeeHistory covers [from, to]. When the source cannot reach back to from, the history starts later and its
-	// OldestBlock says where.
+	// OldestBlock says where; when it cannot reach to either, the error is ErrBeyondHistory.
 	FeeHistory(ctx context.Context, from, to uint64, percentiles []float64) (FeeHistory, error)
 	HeadFee(ctx context.Context) (HeadFee, error)
 	NodeTip(ctx context.Context) (*big.Int, error)
@@ -41,6 +41,8 @@ type BlockStore interface {
 	AverageBlockTime(ctx context.Context, network string) (time.Duration, error)
 	// Prune deletes blocks observed before cutoff and returns how many.
 	Prune(ctx context.Context, cutoff time.Time) (int64, error)
+	// Holes returns the missing blocks numbered above above that lie between two stored blocks, ascending.
+	Holes(ctx context.Context, network string, above uint64) ([]BlockRange, error)
 }
 
 // L1FeeSource reads the L1 data fee of reference transactions, keyed by name.
@@ -65,6 +67,9 @@ type MetricsRecorder interface {
 	// Snapshot records one poll's fees; price is nil when missing or stale.
 	Snapshot(network string, snapshot FeeSnapshot, latest BlockFee, price *PriceQuote)
 	ModelMismatch(network string)
+	BlocksBackfilled(network string, n int)
+	// BlocksLost counts blocks the source no longer serves, so they will never be stored.
+	BlocksLost(network string, n uint64)
 	PollCompleted(network string, took time.Duration, at time.Time)
 }
 

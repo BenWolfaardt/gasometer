@@ -16,7 +16,7 @@ var _ gasometer.FeeSource = (*FeeSource)(nil)
 
 // FeeSourceLimits are what an endpoint serves through eth_feeHistory.
 type FeeSourceLimits struct {
-	HistoryDepth uint64 // blocks behind the requested end the node still serves
+	HistoryDepth uint64 // blocks behind head the node still serves
 	Batch        uint64 // most blocks one call returns
 }
 
@@ -32,14 +32,24 @@ func NewFeeSource(client *Client, limits FeeSourceLimits) *FeeSource {
 	return &FeeSource{client: client, limits: limits}
 }
 
-// FeeHistory implements gasometer.FeeSource. It starts no earlier than the history depth allows and splits the
-// range into calls of at most Batch blocks.
+// FeeHistory implements gasometer.FeeSource. It starts no earlier than the history depth behind head allows and
+// splits the range into calls of at most Batch blocks.
 func (s *FeeSource) FeeHistory(ctx context.Context, from, to uint64, percentiles []float64) (gasometer.FeeHistory, error) {
-	if to+1 > s.limits.HistoryDepth {
-		from = max(from, to+1-s.limits.HistoryDepth)
-	}
 	if from > to {
 		return gasometer.FeeHistory{}, fmt.Errorf("%w: range %d to %d", gasometer.ErrMalformedFeeHistory, from, to)
+	}
+	head, err := s.head(ctx)
+	if err != nil {
+		return gasometer.FeeHistory{}, fmt.Errorf("read head: %w", err)
+	}
+	// A load-balanced endpoint may report a head behind the block the caller already saw.
+	head = max(head, to)
+	if head+1 > s.limits.HistoryDepth {
+		lowest := head + 1 - s.limits.HistoryDepth
+		if to < lowest {
+			return gasometer.FeeHistory{}, fmt.Errorf("%w: %d to %d, head %d", gasometer.ErrBeyondHistory, from, to, head)
+		}
+		from = max(from, lowest)
 	}
 	out := gasometer.FeeHistory{OldestBlock: from}
 	for start := from; start <= to; start += s.limits.Batch {
@@ -70,6 +80,14 @@ func padRewards(rewards [][]*big.Int, n int) [][]*big.Int {
 		rewards = append(rewards, nil)
 	}
 	return rewards[:n]
+}
+
+func (s *FeeSource) head(ctx context.Context) (uint64, error) {
+	var n hexutil.Uint64
+	err := s.client.Do(ctx, "eth_blockNumber", func(ctx context.Context, c *rpc.Client) error {
+		return c.CallContext(ctx, &n, "eth_blockNumber")
+	})
+	return uint64(n), err
 }
 
 func (s *FeeSource) feeHistory(ctx context.Context, blockCount, newest uint64, percentiles []float64) (gasometer.FeeHistory, error) {

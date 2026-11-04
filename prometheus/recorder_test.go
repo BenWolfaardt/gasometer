@@ -154,12 +154,29 @@ func TestSnapshotWithoutPriceLeavesUSDUnset(t *testing.T) {
 	}
 }
 
-func TestInitNetworkExportsZeroMismatches(t *testing.T) {
+func TestInitNetworkExportsZeroCounters(t *testing.T) {
 	r, reg := newRecorder(t)
 	r.InitNetwork("base")
-	f := family(t, reg, "gasometer_model_mismatch_total")
-	if f == nil || len(f.GetMetric()) != 1 || f.GetMetric()[0].GetCounter().GetValue() != 0 {
-		t.Fatalf("mismatch counter %+v", f)
+	for _, name := range []string{"gasometer_model_mismatch_total", "gasometer_blocks_backfilled_total", "gasometer_blocks_lost_total"} {
+		f := family(t, reg, name)
+		if f == nil || len(f.GetMetric()) != 1 || f.GetMetric()[0].GetCounter().GetValue() != 0 {
+			t.Fatalf("%s %+v", name, f)
+		}
+	}
+}
+
+func TestBlockCounters(t *testing.T) {
+	r, reg := newRecorder(t)
+	r.BlocksBackfilled("base", 1_024)
+	r.BlocksBackfilled("base", 976)
+	r.BlocksLost("cchain", 7_062)
+	if f := family(t, reg, "gasometer_blocks_backfilled_total"); f == nil || f.GetMetric()[0].GetCounter().GetValue() != 2_000 {
+		t.Fatalf("backfilled %+v", f)
+	}
+	f := family(t, reg, "gasometer_blocks_lost_total")
+	if f == nil || len(f.GetMetric()) != 1 || f.GetMetric()[0].GetCounter().GetValue() != 7_062 ||
+		f.GetMetric()[0].GetLabel()[0].GetValue() != "cchain" {
+		t.Fatalf("lost %+v", f)
 	}
 }
 
@@ -209,6 +226,8 @@ func TestSeriesBudget(t *testing.T) {
 			L1Fees: map[string]*big.Int{"native": big.NewInt(1), "erc20": big.NewInt(1)}},
 			gasometer.BlockFee{BaseFee: big.NewInt(1), RequiredTip: big.NewInt(1)}, &gasometer.PriceQuote{Answer: big.NewInt(1)})
 		r.ModelMismatch(n)
+		r.BlocksBackfilled(n, 1)
+		r.BlocksLost(n, 1)
 		r.PollCompleted(n, time.Second, time.Now())
 		for _, m := range methods {
 			for _, e := range []string{"primary", "fallback"} {

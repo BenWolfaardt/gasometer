@@ -58,6 +58,10 @@ func (f *Forecaster) Forecast(ctx context.Context, obs Observation) (int, error)
 	if err != nil {
 		return 0, err
 	}
+	if !contiguous(history, obs.Snapshot.AtBlock) {
+		f.log.Debug("history has a hole; no predictions until it is backfilled", "block", obs.Snapshot.AtBlock)
+		return 0, nil
+	}
 
 	var made []gasometer.Prediction
 	for _, predictor := range f.deps.Predictors {
@@ -111,6 +115,20 @@ func (f *Forecaster) history(ctx context.Context, atBlock uint64, avg time.Durat
 		return nil, fmt.Errorf("load history: %w", err)
 	}
 	return blocks, nil
+}
+
+// contiguous reports whether history runs without a gap to atBlock. A hole below its first block only shortens it, as
+// on a first run.
+func contiguous(history []gasometer.BlockFee, atBlock uint64) bool {
+	if len(history) == 0 || history[len(history)-1].Number != atBlock {
+		return false
+	}
+	for i := 1; i < len(history); i++ {
+		if history[i].Number != history[i-1].Number+1 {
+			return false
+		}
+	}
+	return true
 }
 
 // BlocksIn converts a duration to a whole number of blocks at the given average block time, at least one.

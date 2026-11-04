@@ -126,8 +126,9 @@ func pollTick(cfg fileConfig, n networkConfig, client *rpc.Client, s stores, log
 	txs := referenceTxs(cfg)
 	gasometerParams := predict.Params(cfg.Gasometer)
 
+	fees := rpc.NewFeeSource(client, rpc.FeeSourceLimits{HistoryDepth: n.HistoryDepth, Batch: n.FeeHistoryBatch})
 	collectorDeps := poll.CollectorDeps{
-		Fees:      rpc.NewFeeSource(client, rpc.FeeSourceLimits{HistoryDepth: n.HistoryDepth, Batch: n.FeeHistoryBatch}),
+		Fees:      fees,
 		Prices:    rpc.NewChainlinkPriceSource(client, n.PriceFeed),
 		Blocks:    s.blocks,
 		Snapshots: s.snapshots,
@@ -145,7 +146,9 @@ func pollTick(cfg fileConfig, n networkConfig, client *rpc.Client, s stores, log
 		RequiredTipPercentile: n.RequiredTipPercentile,
 		PriceMaxAge:           n.PriceMaxAge,
 		InitialBackfill:       n.InitialBackfill,
+		Chunk:                 n.FeeHistoryBatch,
 	}
+	backfillerParams := poll.BackfillerParams{RequiredTipPercentile: n.RequiredTipPercentile, Chunk: n.FeeHistoryBatch}
 	settlerParams := poll.SettlerParams{ExpiryFactor: cfg.Scoring.ExpiryFactor, PriceMaxAge: n.PriceMaxAge}
 
 	return poll.NewTick(n.Name, poll.TickDeps{
@@ -155,6 +158,9 @@ func pollTick(cfg fileConfig, n networkConfig, client *rpc.Client, s stores, log
 		}),
 		Settler: poll.NewSettler(n.Name, settlerParams, txs, poll.SettlerDeps{
 			Blocks: s.blocks, Snapshots: s.snapshots, Predictions: s.predictions, Metrics: s.metrics, Now: time.Now, Log: log,
+		}),
+		Backfiller: poll.NewBackfiller(n.Name, backfillerParams, poll.BackfillerDeps{
+			Fees: fees, Blocks: s.blocks, Metrics: s.metrics, Now: time.Now, Log: log,
 		}),
 		Metrics: s.metrics,
 		Now:     time.Now,

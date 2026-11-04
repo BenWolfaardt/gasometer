@@ -141,3 +141,27 @@ func (s *BlockStore) Prune(ctx context.Context, cutoff time.Time) (int64, error)
 	}
 	return res.RowsAffected()
 }
+
+// Holes implements gasometer.BlockStore over the (network, number) primary key. The scan starts at the last stored
+// block at or below above, so a hole that above falls inside is still found.
+func (s *BlockStore) Holes(ctx context.Context, network string, above uint64) ([]gasometer.BlockRange, error) {
+	var rows []struct {
+		From int64 `db:"from_number"`
+		To   int64 `db:"to_number"`
+	}
+	err := s.db.SelectContext(ctx, &rows, `
+		SELECT greatest(number + 1, $2 + 1) AS from_number, next - 1 AS to_number FROM (
+			SELECT number, lead(number) OVER (ORDER BY number) AS next
+			FROM blocks WHERE network = $1
+				AND number >= coalesce((SELECT max(number) FROM blocks WHERE network = $1 AND number <= $2), 0)
+		) stored
+		WHERE next > greatest(number + 1, $2 + 1) ORDER BY number`, network, int64(above))
+	if err != nil {
+		return nil, fmt.Errorf("select block holes: %w", err)
+	}
+	out := make([]gasometer.BlockRange, len(rows))
+	for i, r := range rows {
+		out[i] = gasometer.BlockRange{From: uint64(r.From), To: uint64(r.To)}
+	}
+	return out, nil
+}

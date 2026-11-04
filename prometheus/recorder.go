@@ -44,6 +44,8 @@ type Recorder struct {
 	l1Fee         *prometheus.GaugeVec
 	nativeUSD     *prometheus.GaugeVec
 	mismatches    *prometheus.CounterVec
+	backfilled    *prometheus.CounterVec
+	lost          *prometheus.CounterVec
 	rpcRequests   *prometheus.CounterVec
 	rpcDuration   *prometheus.HistogramVec
 	pollDuration  *prometheus.HistogramVec
@@ -77,6 +79,8 @@ func NewRecorder() *Recorder {
 		l1Fee:        f.gauge("l1_fee_wei", "OP Stack L1 data fee of a reference transaction.", "network", "tx"),
 		nativeUSD:    f.gauge("native_usd", "Coin price in USD.", "network"),
 		mismatches:   f.counter("model_mismatch_total", "Polls where the fee model disagreed with the node's next base fee.", "network"),
+		backfilled:   f.counter("blocks_backfilled_total", "Blocks stored by filling holes left by an outage.", "network"),
+		lost:         f.counter("blocks_lost_total", "Blocks past the RPC's history depth that will never be stored.", "network"),
 		rpcRequests:  f.counter("rpc_requests_total", "RPC attempts by outcome.", "network", "method", "endpoint", "outcome"),
 		rpcDuration:  f.histogram("rpc_duration_seconds", "RPC attempt latency.", durationBuckets, "network", "method"),
 		pollDuration: f.histogram("poll_duration_seconds", "Time to collect, predict and score one network.", durationBuckets, "network"),
@@ -91,9 +95,11 @@ func (r *Recorder) Gatherer() prometheus.Gatherer {
 	return r.registry
 }
 
-// InitNetwork exports the network's mismatch counter at zero, so a dashboard reads 0 rather than no data.
+// InitNetwork exports the network's mismatch and block counters at zero, so a dashboard reads 0 rather than no data.
 func (r *Recorder) InitNetwork(network string) {
 	r.mismatches.WithLabelValues(network)
+	r.backfilled.WithLabelValues(network)
+	r.lost.WithLabelValues(network)
 }
 
 // Settled implements gasometer.MetricsRecorder.
@@ -137,6 +143,16 @@ func (r *Recorder) Snapshot(network string, s gasometer.FeeSnapshot, latest gaso
 // ModelMismatch implements gasometer.MetricsRecorder.
 func (r *Recorder) ModelMismatch(network string) {
 	r.mismatches.WithLabelValues(network).Inc()
+}
+
+// BlocksBackfilled implements gasometer.MetricsRecorder.
+func (r *Recorder) BlocksBackfilled(network string, n int) {
+	r.backfilled.WithLabelValues(network).Add(float64(n))
+}
+
+// BlocksLost implements gasometer.MetricsRecorder.
+func (r *Recorder) BlocksLost(network string, n uint64) {
+	r.lost.WithLabelValues(network).Add(float64(n))
 }
 
 // PollCompleted implements gasometer.MetricsRecorder.

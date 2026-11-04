@@ -1426,7 +1426,7 @@
       "gridPos": {
         "x": 0,
         "y": 38,
-        "w": 8,
+        "w": 6,
         "h": 5
       },
       "targets": [
@@ -1504,9 +1504,9 @@
         "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
-        "x": 8,
+        "x": 6,
         "y": 38,
-        "w": 8,
+        "w": 6,
         "h": 5
       },
       "targets": [
@@ -1584,9 +1584,9 @@
         "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
-        "x": 16,
+        "x": 12,
         "y": 38,
-        "w": 8,
+        "w": 6,
         "h": 5
       },
       "targets": [
@@ -1652,6 +1652,86 @@
       "id": 17
     },
     {
+      "type": "stat",
+      "title": "Blocks lost",
+      "description": "Blocks an outage left past the RPC's history depth, so they will never be stored. Expected 0.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 38,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "A",
+          "legendFormat": "C-Chain",
+          "instant": true,
+          "range": false,
+          "expr": "sum (increase(gasometer_blocks_lost_total{network=\"cchain\"}[$__range]))"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "B",
+          "legendFormat": "Base",
+          "instant": true,
+          "range": false,
+          "expr": "sum (increase(gasometer_blocks_lost_total{network=\"base\"}[$__range]))"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "C",
+          "legendFormat": "Optimism",
+          "instant": true,
+          "range": false,
+          "expr": "sum (increase(gasometer_blocks_lost_total{network=\"op\"}[$__range]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "textMode": "value_and_name"
+      },
+      "id": 18
+    },
+    {
       "type": "row",
       "title": "Data collected",
       "collapsed": false,
@@ -1662,7 +1742,7 @@
         "h": 1
       },
       "panels": [],
-      "id": 18
+      "id": 19
     },
     {
       "type": "state-timeline",
@@ -1745,7 +1825,7 @@
           "sort": "none"
         }
       },
-      "id": 19
+      "id": 20
     }
   ]
 }

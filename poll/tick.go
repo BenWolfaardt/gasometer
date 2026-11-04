@@ -14,12 +14,14 @@ type TickDeps struct {
 	Collector  *Collector
 	Forecaster *Forecaster
 	Settler    *Settler
+	Backfiller *Backfiller
 	Metrics    gasometer.MetricsRecorder
 	Now        func() time.Time
 	Log        *slog.Logger
 }
 
-// NewTick collects, forecasts and settles one network. A failed collect skips the rest of the tick.
+// NewTick collects, forecasts and settles one network, then backfills with whatever is left of the tick. A failed
+// collect skips the rest of the tick. The poll duration excludes the backfill, which may run to the deadline.
 func NewTick(network string, deps TickDeps) Tick {
 	log := deps.Log.With("network", network)
 	return func(ctx context.Context) {
@@ -39,7 +41,11 @@ func NewTick(network string, deps TickDeps) Tick {
 		}
 		end := deps.Now()
 		deps.Metrics.PollCompleted(network, end.Sub(start), end)
-		log.Debug("tick", "block", obs.Head.Number, "predictions", made, "settled", settled)
+		backfilled, err := deps.Backfiller.Backfill(ctx)
+		if err != nil {
+			log.Warn("backfill failed; retrying next tick", "err", err)
+		}
+		log.Debug("tick", "block", obs.Head.Number, "predictions", made, "settled", settled, "backfilled", backfilled)
 	}
 }
 

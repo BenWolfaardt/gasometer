@@ -14,11 +14,13 @@ var _ gasometer.BlockStore = (*BlockStore)(nil)
 
 // BlockStore is an in-memory gasometer.BlockStore with injectable errors.
 type BlockStore struct {
-	mu        sync.Mutex
-	Blocks    map[string]map[uint64]gasometer.BlockFee
-	AvgTime   map[string]time.Duration
-	Err       error
-	PruneCuts []time.Time
+	mu         sync.Mutex
+	Blocks     map[string]map[uint64]gasometer.BlockFee
+	AvgTime    map[string]time.Duration
+	Err        error
+	UpsertErr  error // fails Upsert alone
+	PruneCuts  []time.Time
+	HolesAbove []uint64 // the above of every Holes call
 }
 
 // NewBlockStore returns an empty BlockStore.
@@ -32,6 +34,9 @@ func (m *BlockStore) Upsert(_ context.Context, network string, blocks []gasomete
 	defer m.mu.Unlock()
 	if m.Err != nil {
 		return m.Err
+	}
+	if m.UpsertErr != nil {
+		return m.UpsertErr
 	}
 	if m.Blocks[network] == nil {
 		m.Blocks[network] = map[uint64]gasometer.BlockFee{}
@@ -108,6 +113,29 @@ func (m *BlockStore) Prune(_ context.Context, cutoff time.Time) (int64, error) {
 		}
 	}
 	return n, nil
+}
+
+// Holes implements gasometer.BlockStore.
+func (m *BlockStore) Holes(_ context.Context, network string, above uint64) ([]gasometer.BlockRange, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.HolesAbove = append(m.HolesAbove, above)
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	var numbers []uint64
+	for n := range m.Blocks[network] {
+		numbers = append(numbers, n)
+	}
+	slices.Sort(numbers)
+	var out []gasometer.BlockRange
+	for i := 1; i < len(numbers); i++ {
+		from := max(numbers[i-1]+1, above+1)
+		if numbers[i] > from {
+			out = append(out, gasometer.BlockRange{From: from, To: numbers[i] - 1})
+		}
+	}
+	return out, nil
 }
 
 var _ gasometer.SnapshotStore = (*SnapshotStore)(nil)

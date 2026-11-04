@@ -24,11 +24,15 @@ type MetricsRecorder struct {
 	Snapshots   []SnapshotRecord
 	Mismatches  map[string]int
 	Polls       map[string]int
+	Backfilled  map[string]int
+	Lost        map[string]uint64
 }
 
 // NewMetricsRecorder returns an empty recorder.
 func NewMetricsRecorder() *MetricsRecorder {
-	return &MetricsRecorder{Mismatches: map[string]int{}, Polls: map[string]int{}}
+	return &MetricsRecorder{
+		Mismatches: map[string]int{}, Polls: map[string]int{}, Backfilled: map[string]int{}, Lost: map[string]uint64{},
+	}
 }
 
 // Settled implements gasometer.MetricsRecorder.
@@ -50,6 +54,20 @@ func (m *MetricsRecorder) ModelMismatch(network string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.Mismatches[network]++
+}
+
+// BlocksBackfilled implements gasometer.MetricsRecorder.
+func (m *MetricsRecorder) BlocksBackfilled(network string, n int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.Backfilled[network] += n
+}
+
+// BlocksLost implements gasometer.MetricsRecorder.
+func (m *MetricsRecorder) BlocksLost(network string, n uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.Lost[network] += n
 }
 
 // PollCompleted implements gasometer.MetricsRecorder.

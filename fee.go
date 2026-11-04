@@ -58,6 +58,16 @@ type BlockFee struct {
 	ObservedAt   time.Time
 }
 
+// BlockRange is the blocks From through To, inclusive.
+type BlockRange struct {
+	From, To uint64
+}
+
+// Len is the number of blocks in the range.
+func (r BlockRange) Len() uint64 {
+	return r.To - r.From + 1
+}
+
 // FeeSnapshot is one poll's view of the next block.
 type FeeSnapshot struct {
 	ID          int64

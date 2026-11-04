@@ -16,7 +16,7 @@ var (
 	refTxs          = []gasometer.ReferenceTx{{Name: "native", Gas: 21_000}, {Name: "erc20", Gas: 65_000, DataSize: 68}}
 	jovian          = []byte{0x01, 0, 0, 0, 100, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0x4c, 0x4b, 0x40}
 	baseNet         = gasometer.Network{Name: "base", ChainID: 8453, Kind: gasometer.NetworkKindOPStack, Coin: "ETH"}
-	collectorParams = poll.CollectorParams{RequiredTipPercentile: 5, PriceMaxAge: time.Hour, InitialBackfill: 1024}
+	collectorParams = poll.CollectorParams{RequiredTipPercentile: 5, PriceMaxAge: time.Hour, InitialBackfill: 1024, Chunk: 1024}
 )
 
 func clock(at time.Time) func() time.Time { return func() time.Time { return at } }

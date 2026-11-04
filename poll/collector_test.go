@@ -117,7 +117,8 @@ func TestCollectorFetchRange(t *testing.T) {
 	}{
 		{"continues after the latest stored", 4_997, 4_998, 5_000},
 		{"no new blocks refetches head", 5_000, 5_000, 5_000},
-		{"long gap asks for everything since", 100, 101, 5_000},
+		{"gap of one chunk asks for everything since", 3_976, 3_977, 5_000},
+		{"long gap asks for one chunk ending at head", 100, 3_977, 5_000},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -131,6 +132,18 @@ func TestCollectorFetchRange(t *testing.T) {
 				t.Fatalf("calls %+v, want %d to %d", calls, tt.from, tt.to)
 			}
 		})
+	}
+}
+
+func TestCollectorFirstRunIsNotChunked(t *testing.T) {
+	f := newCollectFixture(5_000, modelNext)
+	params := collectorParams
+	params.InitialBackfill, params.Chunk = 3_000, 100
+	if _, err := f.collector(baseNet, params).Collect(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if calls := f.fees.Calls(); len(calls) != 1 || calls[0].From != 2_001 || calls[0].To != 5_000 {
+		t.Fatalf("calls %+v, want the 3,000-block initial backfill", calls)
 	}
 }
 

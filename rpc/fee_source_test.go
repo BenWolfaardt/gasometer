@@ -18,9 +18,10 @@ import (
 
 type feeHistoryCall struct{ count, newest uint64 }
 
-// syntheticNode answers eth_feeHistory with base fee = block number and the next block's base fee after the last.
-// short trims that many blocks from every response; shift moves the whole response that many blocks later.
-func syntheticNode(t *testing.T, short, shift int) (*httptest.Server, func() []feeHistoryCall) {
+// syntheticNode reports head from eth_blockNumber and answers eth_feeHistory with base fee = block number and the next
+// block's base fee after the last. short trims that many blocks from every response; shift moves the whole response
+// that many blocks later. Only eth_feeHistory calls are recorded.
+func syntheticNode(t *testing.T, head uint64, short, shift int) (*httptest.Server, func() []feeHistoryCall) {
 	t.Helper()
 	var (
 		mu    sync.Mutex
@@ -29,9 +30,15 @@ func syntheticNode(t *testing.T, short, shift int) (*httptest.Server, func() []f
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			ID     json.RawMessage   `json:"id"`
+			Method string            `json:"method"`
 			Params []json.RawMessage `json:"params"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
+		w.Header().Set("Content-Type", "application/json")
+		if req.Method == "eth_blockNumber" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": hexutil.EncodeUint64(head)})
+			return
+		}
 		var countHex, newestHex string
 		_ = json.Unmarshal(req.Params[0], &countHex)
 		_ = json.Unmarshal(req.Params[1], &newestHex)
@@ -56,7 +63,6 @@ func syntheticNode(t *testing.T, short, shift int) (*httptest.Server, func() []f
 			}
 		}
 		result["baseFeePerGas"], result["gasUsedRatio"], result["reward"] = baseFees, ratios, rewards
-		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
 	}))
 	t.Cleanup(srv.Close)
@@ -68,7 +74,7 @@ func syntheticNode(t *testing.T, short, shift int) (*httptest.Server, func() []f
 }
 
 func TestFeeSourceBatches(t *testing.T) {
-	srv, calls := syntheticNode(t, 0, 0)
+	srv, calls := syntheticNode(t, 5_000, 0, 0)
 	fees := rpc.NewFeeSource(newClient(t, &recordingObserver{}, srv.URL), rpc.FeeSourceLimits{HistoryDepth: 100_000, Batch: 4})
 	h, err := fees.FeeHistory(t.Context(), 4_991, 5_000, fee.RewardPercentiles(5))
 	if err != nil {
@@ -95,7 +101,7 @@ func TestFeeSourceBatches(t *testing.T) {
 }
 
 func TestFeeSourceClampsToHistoryDepth(t *testing.T) {
-	srv, calls := syntheticNode(t, 0, 0)
+	srv, calls := syntheticNode(t, 5_000, 0, 0)
 	fees := rpc.NewFeeSource(newClient(t, &recordingObserver{}, srv.URL), rpc.FeeSourceLimits{HistoryDepth: 50, Batch: 1024})
 	h, err := fees.FeeHistory(t.Context(), 100, 5_000, fee.RewardPercentiles(5))
 	if err != nil {
@@ -109,8 +115,66 @@ func TestFeeSourceClampsToHistoryDepth(t *testing.T) {
 	}
 }
 
+func TestFeeSourceDepthIsBehindHead(t *testing.T) {
+	tests := []struct {
+		name          string
+		head          uint64
+		from, to      uint64
+		oldest        uint64
+		blocks        int
+		beyondHistory bool
+	}{
+		{"within depth", 5_000, 4_955, 4_960, 4_955, 6, false},
+		{"partly beyond depth starts at the oldest served", 5_000, 4_900, 4_960, 4_951, 10, false},
+		{"ending at the oldest served", 5_000, 4_900, 4_951, 4_951, 1, false},
+		{"wholly beyond depth", 5_000, 100, 200, 0, 0, true},
+		{"head reported behind the range end", 4_990, 4_900, 5_000, 4_951, 50, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv, calls := syntheticNode(t, tt.head, 0, 0)
+			fees := rpc.NewFeeSource(newClient(t, &recordingObserver{}, srv.URL), rpc.FeeSourceLimits{HistoryDepth: 50, Batch: 1024})
+			h, err := fees.FeeHistory(t.Context(), tt.from, tt.to, fee.RewardPercentiles(5))
+			if tt.beyondHistory {
+				if !errors.Is(err, gasometer.ErrBeyondHistory) || len(calls()) != 0 {
+					t.Fatalf("got %v after %d fee history calls", err, len(calls()))
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if h.OldestBlock != tt.oldest || h.Len() != tt.blocks {
+				t.Fatalf("history from %d, %d blocks; want %d, %d", h.OldestBlock, h.Len(), tt.oldest, tt.blocks)
+			}
+		})
+	}
+}
+
+func TestFeeSourceFailsWithoutHead(t *testing.T) {
+	var feeHistoryCalls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			ID     json.RawMessage `json:"id"`
+			Method string          `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.Method == "eth_feeHistory" {
+			feeHistoryCalls++
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID,
+			"error": map[string]any{"code": -32000, "message": "head unavailable"}})
+	}))
+	t.Cleanup(srv.Close)
+	fees := rpc.NewFeeSource(newClient(t, &recordingObserver{}, srv.URL), rpc.FeeSourceLimits{HistoryDepth: 50, Batch: 1024})
+	if _, err := fees.FeeHistory(t.Context(), 100, 200, fee.RewardPercentiles(5)); err == nil || feeHistoryCalls != 0 {
+		t.Fatalf("got %v after %d fee history calls; want the head error and no fee history", err, feeHistoryCalls)
+	}
+}
+
 func TestFeeSourceSingleBlock(t *testing.T) {
-	srv, _ := syntheticNode(t, 0, 0)
+	srv, _ := syntheticNode(t, 7, 0, 0)
 	fees := rpc.NewFeeSource(newClient(t, &recordingObserver{}, srv.URL), rpc.FeeSourceLimits{HistoryDepth: 100, Batch: 1024})
 	h, err := fees.FeeHistory(t.Context(), 7, 7, fee.RewardPercentiles(5))
 	if err != nil || h.OldestBlock != 7 || h.Len() != 1 || h.NextBaseFee().Uint64() != 8 {
@@ -119,7 +183,7 @@ func TestFeeSourceSingleBlock(t *testing.T) {
 }
 
 func TestFeeSourceRejectsShortResponses(t *testing.T) {
-	srv, _ := syntheticNode(t, 1, 0)
+	srv, _ := syntheticNode(t, 10, 1, 0)
 	fees := rpc.NewFeeSource(newClient(t, &recordingObserver{}, srv.URL), rpc.FeeSourceLimits{HistoryDepth: 100, Batch: 1024})
 	if _, err := fees.FeeHistory(t.Context(), 1, 10, fee.RewardPercentiles(5)); !errors.Is(err, gasometer.ErrMalformedFeeHistory) {
 		t.Fatalf("got %v", err)
@@ -127,7 +191,7 @@ func TestFeeSourceRejectsShortResponses(t *testing.T) {
 }
 
 func TestFeeSourceRejectsInvertedRange(t *testing.T) {
-	srv, calls := syntheticNode(t, 0, 0)
+	srv, calls := syntheticNode(t, 10, 0, 0)
 	fees := rpc.NewFeeSource(newClient(t, &recordingObserver{}, srv.URL), rpc.FeeSourceLimits{HistoryDepth: 100, Batch: 1024})
 	if _, err := fees.FeeHistory(t.Context(), 11, 10, fee.RewardPercentiles(5)); !errors.Is(err, gasometer.ErrMalformedFeeHistory) || len(calls()) != 0 {
 		t.Fatalf("got %v after %d calls", err, len(calls()))
@@ -135,7 +199,7 @@ func TestFeeSourceRejectsInvertedRange(t *testing.T) {
 }
 
 func TestFeeSourceRejectsShiftedResponses(t *testing.T) {
-	srv, _ := syntheticNode(t, 0, 1)
+	srv, _ := syntheticNode(t, 10, 0, 1)
 	fees := rpc.NewFeeSource(newClient(t, &recordingObserver{}, srv.URL), rpc.FeeSourceLimits{HistoryDepth: 100, Batch: 1024})
 	if _, err := fees.FeeHistory(t.Context(), 1, 10, fee.RewardPercentiles(5)); !errors.Is(err, gasometer.ErrMalformedFeeHistory) {
 		t.Fatalf("got %v", err)
