@@ -23,8 +23,10 @@ type SettlerDeps struct {
 	Snapshots   gasometer.SnapshotStore
 	Predictions gasometer.PredictionStore
 	Metrics     gasometer.MetricsRecorder
-	Now         func() time.Time
-	Log         *slog.Logger
+	// Covered is the block at or below which every block is stored or lost, as Backfiller.Covered reports it.
+	Covered func() uint64
+	Now     func() time.Time
+	Log     *slog.Logger
 }
 
 // Settler resolves, expires or marks unresolvable the pending predictions of one network.
@@ -79,7 +81,8 @@ func lastBlock(p gasometer.Prediction) uint64 {
 	return p.AtBlock + uint64(p.Horizon.Blocks)
 }
 
-// resolve scores every ready prediction against one load of the blocks they span.
+// resolve scores every ready prediction against one load of the blocks they span. A window with a gap the backfill
+// has yet to reach stays pending; once the backfill has passed it, the missing blocks are lost and it is unresolvable.
 func (s *Settler) resolve(ctx context.Context, ready []gasometer.Prediction, now time.Time) ([]gasometer.Prediction, error) {
 	if len(ready) == 0 {
 		return nil, nil
@@ -97,6 +100,7 @@ func (s *Settler) resolve(ctx context.Context, ready []gasometer.Prediction, now
 		byNumber[b.Number] = b
 	}
 
+	covered := s.deps.Covered()
 	out := make([]gasometer.Prediction, 0, len(ready))
 	for _, p := range ready {
 		window := make([]gasometer.BlockFee, 0, p.Horizon.Blocks)
@@ -107,6 +111,9 @@ func (s *Settler) resolve(ctx context.Context, ready []gasometer.Prediction, now
 		}
 		p.ResolvedAt = now
 		result, err := score.Bid(p.Bid, p.AtBlock, p.Horizon.Blocks, window)
+		if errors.Is(err, gasometer.ErrBlockGap) && lastBlock(p) > covered {
+			continue
+		}
 		if err != nil {
 			if !errors.Is(err, gasometer.ErrBlockGap) {
 				s.log.Error("score prediction", "err", err, "prediction", p.ID)

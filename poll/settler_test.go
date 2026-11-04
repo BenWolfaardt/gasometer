@@ -18,12 +18,13 @@ type scoreFixture struct {
 	snapshots   *mock.SnapshotStore
 	predictions *mock.PredictionStore
 	metrics     *mock.MetricsRecorder
+	covered     uint64
 }
 
 func newScoreFixture(t *testing.T, price gasometer.PriceQuote) *scoreFixture {
 	f := &scoreFixture{
 		blocks: mock.NewBlockStore(), snapshots: mock.NewSnapshotStore(),
-		predictions: &mock.PredictionStore{}, metrics: mock.NewMetricsRecorder(),
+		predictions: &mock.PredictionStore{}, metrics: mock.NewMetricsRecorder(), covered: math.MaxUint64,
 	}
 	// Blocks 101..110 at base fee 100 needing a tip of 5.
 	var blocks []gasometer.BlockFee
@@ -54,7 +55,7 @@ func (f *scoreFixture) scorer(now time.Time) *poll.Settler {
 	params := poll.SettlerParams{ExpiryFactor: 10, PriceMaxAge: time.Hour}
 	return poll.NewSettler("base", params, refTxs[:1], poll.SettlerDeps{
 		Blocks: f.blocks, Snapshots: f.snapshots, Predictions: f.predictions, Metrics: f.metrics,
-		Now: clock(now), Log: nopLog,
+		Covered: func() uint64 { return f.covered }, Now: clock(now), Log: nopLog,
 	})
 }
 
@@ -103,6 +104,49 @@ func TestSettlerOutcomes(t *testing.T) {
 		outcomes["gap"] != "unresolvable" {
 		t.Fatalf("outcomes %v", outcomes)
 	}
+}
+
+func TestSettlerWaitsForTheBackfill(t *testing.T) {
+	// The window 108..112 has a gap above the stored 101..110.
+	for _, tt := range []struct {
+		name    string
+		covered uint64
+		want    gasometer.PredictionStatus
+	}{
+		{"gap above the backfill", 111, gasometer.PredictionPending},
+		{"gap the backfill has passed", 112, gasometer.PredictionUnresolvable},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newScoreFixture(t, freshPrice())
+			f.covered = tt.covered
+			f.add(t, "gap", 30, 5, 107, 10, 200)
+			if _, err := f.scorer(t0.Add(time.Hour)).Settle(t.Context(), 112); err != nil {
+				t.Fatal(err)
+			}
+			if got := f.predictions.Predictions[0].Status; got != tt.want {
+				t.Fatalf("status %s, want %s", got, tt.want)
+			}
+		})
+	}
+	t.Run("resolves once backfilled", func(t *testing.T) {
+		f := newScoreFixture(t, freshPrice())
+		f.covered = 100
+		f.add(t, "gap", 30, 5, 107, 10, 200)
+		if n, err := f.scorer(t0.Add(time.Hour)).Settle(t.Context(), 112); err != nil || n != 0 {
+			t.Fatalf("settled %d before the backfill: %v", n, err)
+		}
+		_ = f.blocks.Upsert(t.Context(), "base", []gasometer.BlockFee{
+			{Number: 111, BaseFee: wei(100), RequiredTip: wei(5), ObservedAt: t0},
+			{Number: 112, BaseFee: wei(100), RequiredTip: wei(5), ObservedAt: t0},
+		})
+		f.covered = 112
+		if n, err := f.scorer(t0.Add(time.Hour)).Settle(t.Context(), 112); err != nil || n != 1 {
+			t.Fatalf("settled %d after the backfill: %v", n, err)
+		}
+		if got := f.predictions.Predictions[0].Status; got != gasometer.PredictionResolved {
+			t.Fatalf("status %s, want resolved", got)
+		}
+	})
 }
 
 func TestSettlerCosts(t *testing.T) {

@@ -150,6 +150,9 @@ func pollTick(cfg fileConfig, n networkConfig, client *rpc.Client, s stores, log
 	}
 	backfillerParams := poll.BackfillerParams{RequiredTipPercentile: n.RequiredTipPercentile, Chunk: n.FeeHistoryBatch}
 	settlerParams := poll.SettlerParams{ExpiryFactor: cfg.Scoring.ExpiryFactor, PriceMaxAge: n.PriceMaxAge}
+	backfiller := poll.NewBackfiller(n.Name, backfillerParams, poll.BackfillerDeps{
+		Fees: fees, Blocks: s.blocks, Metrics: s.metrics, Now: time.Now, Log: log,
+	})
 
 	return poll.NewTick(n.Name, poll.TickDeps{
 		Collector: poll.NewCollector(network, collectorParams, txs, collectorDeps),
@@ -157,14 +160,13 @@ func pollTick(cfg fileConfig, n networkConfig, client *rpc.Client, s stores, log
 			Predictors: predictors, Blocks: s.blocks, Predictions: s.predictions, Log: log,
 		}),
 		Settler: poll.NewSettler(n.Name, settlerParams, txs, poll.SettlerDeps{
-			Blocks: s.blocks, Snapshots: s.snapshots, Predictions: s.predictions, Metrics: s.metrics, Now: time.Now, Log: log,
+			Blocks: s.blocks, Snapshots: s.snapshots, Predictions: s.predictions, Metrics: s.metrics,
+			Covered: backfiller.Covered, Now: time.Now, Log: log,
 		}),
-		Backfiller: poll.NewBackfiller(n.Name, backfillerParams, poll.BackfillerDeps{
-			Fees: fees, Blocks: s.blocks, Metrics: s.metrics, Now: time.Now, Log: log,
-		}),
-		Metrics: s.metrics,
-		Now:     time.Now,
-		Log:     log,
+		Backfiller: backfiller,
+		Metrics:    s.metrics,
+		Now:        time.Now,
+		Log:        log,
 	}), nil
 }
 

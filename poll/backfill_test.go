@@ -271,6 +271,9 @@ func TestBackfillCursor(t *testing.T) {
 	if want := []uint64{0, 110, 210}; !slices.Equal(f.blocks.HolesAbove, want) {
 		t.Fatalf("holes looked for above %v, want %v: an RPC error leaves the cursor before the failing hole", f.blocks.HolesAbove, want)
 	}
+	if got := b.Covered(); got != 210 {
+		t.Fatalf("covered %d, want the latest stored block 210", got)
+	}
 }
 
 func TestBackfillStoreErrorEndsThePass(t *testing.T) {

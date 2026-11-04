@@ -2,6 +2,7 @@ package poll_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -123,15 +124,16 @@ func TestForecasterSkipsPredictorsWithoutHistory(t *testing.T) {
 	}
 }
 
-func TestForecasterWaitsForAHoleToFill(t *testing.T) {
+func TestForecasterPredictsOnTheRunEndingAtHead(t *testing.T) {
 	tests := []struct {
-		name   string
-		stored [][2]uint64
-		want   int
+		name     string
+		stored   [][2]uint64
+		history  [2]uint64 // first and last block the predictors see; zero for none
+		predicts []string
 	}{
-		{"hole inside the window", [][2]uint64{{1, 4_000}, {4_100, 5_000}}, 0},
-		{"head missing", [][2]uint64{{1, 4_999}}, 0},
-		{"hole below the window start only shortens it", [][2]uint64{{1, 100}, {4_990, 5_000}}, 1},
+		{"hole inside the window", [][2]uint64{{1, 4_000}, {4_100, 5_000}}, [2]uint64{4_100, 5_000}, []string{"gasometer", "node"}},
+		{"run too short for the tip window", [][2]uint64{{1, 4_980}, {4_990, 5_000}}, [2]uint64{4_990, 5_000}, []string{"node"}},
+		{"head missing", [][2]uint64{{1, 4_999}}, [2]uint64{}, []string{"node"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -140,12 +142,27 @@ func TestForecasterWaitsForAHoleToFill(t *testing.T) {
 			for _, r := range tt.stored {
 				storeBlocks(t, blocks, r[0], r[1])
 			}
+			recorded := &recordingPredictor{Predictor: predict.NewGasometer(0.9, 30, predict.NewEmpiricalProjector(0.99))}
 			predictions := &mock.PredictionStore{}
-			n, err := poll.NewForecaster("base", []int{2}, gasometerParams, poll.ForecasterDeps{
-				Predictors: []gasometer.Predictor{predict.NewNode()}, Blocks: blocks, Predictions: predictions, Log: nopLog,
+			_, err := poll.NewForecaster("base", []int{2}, gasometerParams, poll.ForecasterDeps{
+				Predictors: []gasometer.Predictor{recorded, predict.NewNode()}, Blocks: blocks, Predictions: predictions, Log: nopLog,
 			}).Forecast(t.Context(), observation(5_000))
-			if err != nil || n != tt.want || len(predictions.Predictions) != tt.want {
-				t.Fatalf("n %d, err %v, want %d", n, err, tt.want)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got [2]uint64
+			if h := recorded.inputs[0].History; len(h) > 0 {
+				got = [2]uint64{h[0].Number, h[len(h)-1].Number}
+			}
+			if got != tt.history {
+				t.Fatalf("history %v, want %v", got, tt.history)
+			}
+			var made []string
+			for _, p := range predictions.Predictions {
+				made = append(made, p.Predictor)
+			}
+			if !slices.Equal(made, tt.predicts) {
+				t.Fatalf("predicted %v, want %v", made, tt.predicts)
 			}
 		})
 	}

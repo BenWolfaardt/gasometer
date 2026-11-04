@@ -61,6 +61,11 @@ func (b *Backfiller) Backfill(ctx context.Context) (int, error) {
 	return stored, nil
 }
 
+// Covered is the block at or below which every block is stored or reported lost.
+func (b *Backfiller) Covered() uint64 {
+	return b.cursor
+}
+
 func (b *Backfiller) pass(ctx context.Context) (int, error) {
 	holes, err := b.deps.Blocks.Holes(ctx, b.network, b.cursor)
 	if err != nil {

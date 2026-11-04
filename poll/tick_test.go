@@ -21,11 +21,12 @@ func pollFixture(fees *mock.FeeSource, blocks *mock.BlockStore) (poll.Tick, *moc
 	forecaster := poll.NewForecaster("base", []int{2}, gasometerParams, poll.ForecasterDeps{
 		Predictors: []gasometer.Predictor{predict.NewNode()}, Blocks: blocks, Predictions: predictions, Log: nopLog,
 	})
-	settler := poll.NewSettler("base", poll.SettlerParams{ExpiryFactor: 10, PriceMaxAge: time.Hour}, refTxs,
-		poll.SettlerDeps{Blocks: blocks, Snapshots: snapshots, Predictions: predictions, Metrics: rec, Now: clock(t0), Log: nopLog})
 	backfiller := poll.NewBackfiller("base", poll.BackfillerParams{RequiredTipPercentile: 5, Chunk: 1024}, poll.BackfillerDeps{
 		Fees: fees, Blocks: blocks, Metrics: rec, Now: clock(t0), Log: nopLog,
 	})
+	settler := poll.NewSettler("base", poll.SettlerParams{ExpiryFactor: 10, PriceMaxAge: time.Hour}, refTxs,
+		poll.SettlerDeps{Blocks: blocks, Snapshots: snapshots, Predictions: predictions, Metrics: rec,
+			Covered: backfiller.Covered, Now: clock(t0), Log: nopLog})
 	tick := poll.NewTick("base", poll.TickDeps{
 		Collector: collector, Forecaster: forecaster, Settler: settler, Backfiller: backfiller,
 		Metrics: rec, Now: time.Now, Log: nopLog,
