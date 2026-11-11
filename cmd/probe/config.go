@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/BenWolfaardt/gasometer"
-	"github.com/BenWolfaardt/gasometer/rpc"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/infrastructure/rpc"
 )
 
 // seedEnv names the variable holding the probe seed, hex encoded; it is read from the environment only, so it never

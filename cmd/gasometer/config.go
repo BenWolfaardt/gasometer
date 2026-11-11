@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/BenWolfaardt/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer"
 )
 
 // Config follows avalanchego's config package pattern: keys, flags with defaults, viper layering, the config file's

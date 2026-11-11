@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenWolfaardt/gasometer/postgres/pgtest"
+	"github.com/BenWolfaardt/gasometer/internal/infrastructure/postgres/pgtest"
 )
 
 // TestBinaryStartsAndStops runs the composition root end to end: migrate, serve /readyz and /metrics, poll a

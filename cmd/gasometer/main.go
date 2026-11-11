@@ -16,14 +16,14 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/BenWolfaardt/gasometer"
-	"github.com/BenWolfaardt/gasometer/http"
-	"github.com/BenWolfaardt/gasometer/poll"
-	"github.com/BenWolfaardt/gasometer/postgres"
-	"github.com/BenWolfaardt/gasometer/predict"
-	"github.com/BenWolfaardt/gasometer/prometheus"
-	"github.com/BenWolfaardt/gasometer/rpc"
-	"github.com/BenWolfaardt/gasometer/sae"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/poll"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/predict"
+	"github.com/BenWolfaardt/gasometer/internal/infrastructure/http"
+	"github.com/BenWolfaardt/gasometer/internal/infrastructure/postgres"
+	"github.com/BenWolfaardt/gasometer/internal/infrastructure/prometheus"
+	"github.com/BenWolfaardt/gasometer/internal/infrastructure/rpc"
+	"github.com/BenWolfaardt/gasometer/internal/infrastructure/sae"
 )
 
 const pruneInterval = time.Hour

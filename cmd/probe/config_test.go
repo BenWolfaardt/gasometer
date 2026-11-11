@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/BenWolfaardt/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer"
 )
 
 var testSeedHex = strings.Repeat("ab", 32)

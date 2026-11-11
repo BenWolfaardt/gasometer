@@ -15,9 +15,9 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/BenWolfaardt/gasometer/postgres"
-	"github.com/BenWolfaardt/gasometer/probe"
-	"github.com/BenWolfaardt/gasometer/rpc"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/probe"
+	"github.com/BenWolfaardt/gasometer/internal/infrastructure/postgres"
+	"github.com/BenWolfaardt/gasometer/internal/infrastructure/rpc"
 )
 
 func main() {

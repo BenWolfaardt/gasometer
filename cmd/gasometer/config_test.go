@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenWolfaardt/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer"
 )
 
 const minimalYAML = `
