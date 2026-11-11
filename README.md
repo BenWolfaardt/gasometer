@@ -158,14 +158,14 @@ The code follows Ben Johnson's [Standard Package Layout](https://medium.com/@ben
 
 | Package | Holds |
 | --- | --- |
-| `gasometer` | Domain types, ports and errors. Standard library only |
-| `fee` | EIP-1559 with OP Stack parameters, `extraData` decoding, block fee summaries |
-| `predict` | The predictors and their base fee projections |
-| `score` | Scoring a bid over a block window, and its USD costs |
-| `poll` | Each network's collect, forecast and settle cycle |
-| `probe` | The tip ladder campaign |
-| `rpc`, `sae`, `postgres`, `prometheus`, `http` | One adapter per dependency; `sae` runs avalanchego's gas clock |
-| `mock` | Hand-written mocks of every port |
+| `internal/gasometer` | Domain types, ports and errors. Standard library only |
+| `internal/gasometer/fee` | EIP-1559 with OP Stack parameters, `extraData` decoding, block fee summaries |
+| `internal/gasometer/predict` | The predictors and their base fee projections |
+| `internal/gasometer/score` | Scoring a bid over a block window, and its USD costs |
+| `internal/gasometer/poll` | Each network's collect, forecast and settle cycle |
+| `internal/gasometer/probe` | The tip ladder campaign |
+| `internal/infrastructure/rpc`, `internal/infrastructure/sae`, `internal/infrastructure/postgres`, `internal/infrastructure/prometheus`, `internal/infrastructure/http` | One adapter per dependency; `sae` runs avalanchego's gas clock |
+| `internal/mock` | Hand-written mocks of every port |
 | `cmd/gasometer`, `cmd/probe` | Config and wiring for the service and the campaign |
 
 ## Roadmap

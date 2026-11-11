@@ -187,7 +187,7 @@ func (s *State) FinishBlock() (*blocks.WorstCaseBounds, error) {
 	if err := s.clock.AfterBlock(s.blockSize, target, gasCfg); err != nil {
 ```
 
-gasometer's [`sae`](../sae/sae.go) package does the same replay with avalanchego's own `gastime`, `proxytime` and `cchain/dynamic`, and parses atomic transactions with `cchain/tx`.
+gasometer's [`sae`](../internal/infrastructure/sae/sae.go) package does the same replay with avalanchego's own `gastime`, `proxytime` and `cchain/dynamic`, and parses atomic transactions with `cchain/tx`.
 
 How far back a block's settled block sits decides how many blocks the replay must fetch. The chart counts it for 10,000 consecutive mainnet blocks: 2,962 of them settled the block 8 behind them, 2,699 the block 7 behind, and none more than 16.
 
@@ -197,7 +197,7 @@ The peak follows from $\tau$. A block can only settle one whose execution finish
 
 ## 5. The worst-case bound
 
-gasometer bids for landing within $k$ blocks, so it needs the highest base fee block $n+1+k$ can have, given the chain up to block $n$. A max fee at or above that ceiling cannot be outbid by the base fee within the horizon. [`sae.MaxBaseFeeAfter`](../sae/sae.go) runs the clock forward from the next block's bound through $k$ blocks, each of them full and each at the worst config its parent can step to, the minimum price up and the target down through avalanchego's own `Toward`. It then adds a rounding slack:
+gasometer bids for landing within $k$ blocks, so it needs the highest base fee block $n+1+k$ can have, given the chain up to block $n$. A max fee at or above that ceiling cannot be outbid by the base fee within the horizon. [`sae.MaxBaseFeeAfter`](../internal/infrastructure/sae/sae.go) runs the clock forward from the next block's bound through $k$ blocks, each of them full and each at the worst config its parent can step to, the minimum price up and the target down through avalanchego's own `Toward`. It then adds a rounding slack:
 
 $$
 \bar{p}_{n+1+k} = \left\lceil p^{\text{walk}}_k \cdot \left(1 + k \cdot 10^{-6}\right) \right\rceil
@@ -313,7 +313,7 @@ Neither value is what the block will actually pay. Both are upper bounds, and th
 
 ## 8. Validation
 
-All of these figures come from tests in this repository that run against the public endpoint (`go test -tags live ./rpc`): [`live_replay_sae_test.go`](../rpc/live_replay_sae_test.go) and [`live_feehistory_sae_test.go`](../rpc/live_feehistory_sae_test.go). The replay checks the 10,000 blocks before the head by default; `GASOMETER_SAE_REPLAY_END` and `GASOMETER_SAE_REPLAY_BLOCKS` point it at any other window.
+All of these figures come from tests in this repository that run against the public endpoint (`go test -tags live ./internal/infrastructure/rpc`): [`live_replay_sae_test.go`](../internal/infrastructure/rpc/live_replay_sae_test.go) and [`live_feehistory_sae_test.go`](../internal/infrastructure/rpc/live_feehistory_sae_test.go). The replay checks the 10,000 blocks before the head by default; `GASOMETER_SAE_REPLAY_END` and `GASOMETER_SAE_REPLAY_BLOCKS` point it at any other window.
 
 The replay ran over recent blocks, where the floor sets the fee, and over three windows of 20,000 blocks from SAE's first week (95,975,001 to 95,995,000, 96,070,001 to 96,090,000 and 96,120,001 to 96,140,000), where the clock set every fee.
 

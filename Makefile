@@ -67,19 +67,19 @@ test-db-down: ## Stop the integration test Postgres
 
 .PHONY: integration
 integration: ## Run integration tests against GASOMETER_TEST_DATABASE_URL (see test-db-up)
-	go test -tags integration -count=1 ./postgres/... ./cmd/...
+	go test -tags integration -count=1 ./internal/infrastructure/postgres/... ./cmd/...
 
 .PHONY: live
 live: ## Replay recent Base and OP headers and C-Chain blocks against the fee models (needs network)
-	go test -tags live -count=1 -v -run TestLive ./rpc/
+	go test -tags live -count=1 -v -run TestLive ./internal/infrastructure/rpc/
 
 .PHONY: record-fixtures
-record-fixtures: ## Re-record the fixtures in rpc/testdata and sae/testdata (needs network)
-	go test -tags record -count=1 -run 'TestRecord' ./rpc/
+record-fixtures: ## Re-record the fixtures in internal/infrastructure/{rpc,sae}/testdata (needs network)
+	go test -tags record -count=1 -run 'TestRecord' ./internal/infrastructure/rpc/
 
 .PHONY: migrate
 migrate: ## Apply migrations to DATABASE_URL
-	$(MIGRATE) -path postgres/migrations -database "$(DATABASE_URL)" up
+	$(MIGRATE) -path internal/infrastructure/postgres/migrations -database "$(DATABASE_URL)" up
 
 .PHONY: compose-up
 compose-up: ## Start gasometer, Postgres and Alloy (needs deploy/.env)
