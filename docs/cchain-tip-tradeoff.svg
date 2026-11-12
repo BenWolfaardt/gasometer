@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" font-family="sans-serif" font-size="12">
+<style>text{fill:#808080}.ax{stroke:#808080;stroke-width:1}.g{stroke:#3b82f6;stroke-width:2;fill:none}.d{fill:#3b82f6}.p{fill:#e8590c}</style>
+<line class="ax" x1="64" y1="380" x2="616" y2="380"/><line class="ax" x1="64" y1="30" x2="64" y2="380"/>
+<polyline class="g" points="130.4,378.2 348.4,326.6 502.1,204.1 566.0,149.9 587.0,127.1 604.2,69.4"/>
+<circle class="d" cx="130.4" cy="378.2" r="3.5"/>
+<text x="122.4" y="370.2" text-anchor="end">q 0.5</text>
+<circle class="d" cx="348.4" cy="326.6" r="3.5"/>
+<text x="340.4" y="318.6" text-anchor="end">q 0.75</text>
+<circle class="d" cx="502.1" cy="204.1" r="3.5"/>
+<text x="494.1" y="196.1" text-anchor="end">q 0.9</text>
+<circle class="d" cx="566.0" cy="149.9" r="3.5"/>
+<text x="558.0" y="141.9" text-anchor="end">q 0.95</text>
+<circle class="d" cx="587.0" cy="127.1" r="3.5"/>
+<text x="579.0" y="119.1" text-anchor="end">q 0.97</text>
+<circle class="d" cx="604.2" cy="69.4" r="3.5"/>
+<text x="596.2" y="61.4" text-anchor="end">q 0.99</text>
+<circle class="p" cx="605.6" cy="65.9" r="5"/>
+<text x="597.6" y="43.9" text-anchor="end" fill="#e8590c" style="fill:#e8590c">live, q 0.99</text>
+<text x="58" y="384.0" text-anchor="end">0%</text>
+<text x="58" y="296.5" text-anchor="end">10%</text>
+<text x="58" y="209.0" text-anchor="end">20%</text>
+<text x="58" y="121.5" text-anchor="end">30%</text>
+<text x="58" y="34.0" text-anchor="end">40%</text>
+<text x="64.0" y="396" text-anchor="middle">50%</text>
+<text x="174.4" y="396" text-anchor="middle">60%</text>
+<text x="284.8" y="396" text-anchor="middle">70%</text>
+<text x="395.2" y="396" text-anchor="middle">80%</text>
+<text x="505.6" y="396" text-anchor="middle">90%</text>
+<text x="616.0" y="396" text-anchor="middle">100%</text>
+<text x="14" y="205.0" transform="rotate(-90 14 205.0)" text-anchor="middle">fee overpaid</text>
+<text x="340.0" y="416" text-anchor="middle">bids landed within 2 s</text>
+</svg>
