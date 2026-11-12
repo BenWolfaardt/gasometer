@@ -10,9 +10,9 @@
 
 gasometer measures how much fee estimators overpay to get a transaction included, and how often their bids would actually have landed. It scores them continuously on Base, OP Mainnet and Avalanche C-Chain and publishes the results to a [live dashboard](https://ionsie.grafana.net/public-dashboards/f7aee50b6bb34f9e92f94ec700509cf8).
 
-![C-Chain's gas clock and base fee during a burst of full blocks](docs/sae-gas-clock.svg)
+![Share of each bid's fee paid above the cheapest bid that landed within 30 seconds, on C-Chain, Base and Optimism, over the week](docs/dashboard-week.png)
 
-*C-Chain's base fee during a burst of full blocks: each one raises it 12.2%, and it only falls once wall time catches the gas clock. From the [write-up](docs/sae-gas-pricing.md#3-the-gas-clock).*
+*Share of the fee overpaid at the 30 second horizon, 2026-11-04 to 2026-11-11. Overpay is scored against the cheapest tip each block included, an upper bound on what inclusion needed, so these are lower bounds. Figures measured with real transactions are in progress. Live on the [public dashboard](https://ionsie.grafana.net/public-dashboards/f7aee50b6bb34f9e92f94ec700509cf8).*
 
 ## Why
 
@@ -53,9 +53,7 @@ The upper bound matters most at short horizons. C-Chain's node suggests a 150 we
 - **gasometer** paid within 0.5% of the cheapest landing fee on every network and landed at least 99% of bids. At 2 seconds on C-Chain it lands 99.1% but overpays 36%, the price of covering the two-block tail; the [write-up](docs/first-week.md#4-c-chain-at-2-seconds) covers why.
 - **The service** polled every minute of the week on all three networks, with zero fee model mismatches.
 
-![Share of each bid's fee paid above the cheapest bid that landed within 30 seconds, on C-Chain, Base and Optimism, over the week](docs/dashboard-week.png)
-
-*Share of the fee that was overpaid, 2026-11-04 to 2026-11-11. Live on the [public dashboard](https://ionsie.grafana.net/public-dashboards/f7aee50b6bb34f9e92f94ec700509cf8). The [full write-up](docs/first-week.md) covers all three horizons.*
+The [full write-up](docs/first-week.md) covers all three horizons.
 
 ## How it works
 
@@ -176,7 +174,7 @@ The code follows Ben Johnson's [Standard Package Layout](https://medium.com/@ben
 
 ## Roadmap
 
-- **Probe transactions.** Send real transfers at a ladder of tips and measure the required tip instead of bounding it. Built for C-Chain, not yet run; Base and OP next.
+- **Probe transactions.** Send real transfers at a ladder of tips and measure the required tip instead of bounding it. Built for C-Chain, with results in progress; Base and OP next.
 - **Bridge quotes.** Compare cross-chain bridge quotes with what the transfers actually cost.
 
 ## Licence

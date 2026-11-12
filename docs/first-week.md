@@ -4,7 +4,7 @@ One week of the live service, 2026-11-04 15:00 to 2026-11-11 15:00 UTC, with no 
 
 ![Share of each bid's fee paid above the cheapest bid that landed within 30 seconds, on C-Chain, Base and Optimism, over the week](dashboard-week.png)
 
-*Share of the fee that was overpaid, 30 second horizon, over the week. Live on the [public dashboard](https://ionsie.grafana.net/public-dashboards/f7aee50b6bb34f9e92f94ec700509cf8).*
+*Share of the fee that was overpaid, 30 second horizon, over the week. Overpay is scored against an upper bound on the required tip, so it is a lower bound; figures measured with real transactions are in progress. Live on the [public dashboard](https://ionsie.grafana.net/public-dashboards/f7aee50b6bb34f9e92f94ec700509cf8).*
 
 ## 1. Window and method
 
