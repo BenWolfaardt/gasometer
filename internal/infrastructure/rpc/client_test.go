@@ -56,6 +56,23 @@ func TestClientRetriesThenSucceeds(t *testing.T) {
 	}
 }
 
+// The server stays up throughout, so only the client's own Close can end the connection it opened.
+func TestClientCloseReleasesConnections(t *testing.T) {
+	_, srv := newReplayServer(t, "base")
+	idle := goleak.IgnoreCurrent()
+	c, err := rpc.NewClient(t.Context(), "test", testRPCConfig(srv.URL), &recordingObserver{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := newFeeSource(c).NodeTip(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	c.Close()
+	if err := goleak.Find(idle); err != nil {
+		t.Fatalf("connection goroutines outlived Close: %v", err)
+	}
+}
+
 func TestClientFallsBackAfterRetries(t *testing.T) {
 	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "down", http.StatusBadGateway)

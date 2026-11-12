@@ -71,7 +71,10 @@ func TestLiveFeeHistorySAE(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		classify(ctx, t, &counts, s, bound, blocks, head.Number)
+		if err := classify(ctx, t, &counts, s, bound, blocks, head.Number); err != nil {
+			counts.skipped++
+			continue
+		}
 		if successor, err := oneNodeFeeHistory(ctx, client); err == nil {
 			counts.oneNode++
 			if successor {
@@ -172,14 +175,14 @@ func sampleFeeHistory(ctx context.Context, client *rpc.Client, e uint64) (feeHis
 }
 
 // classify counts s by branch. A block accepted mid-call puts the bound branch's sample in wrong, unless the two
-// values coincide.
+// values coincide. It returns an error, counting nothing, when no backend it reaches serves block e+1 yet.
 func classify(ctx context.Context, t *testing.T, counts *feeHistoryCounts, s feeHistorySample, bound *big.Int,
-	blocks *rpc.SAESource, e uint64) {
+	blocks *rpc.SAESource, e uint64) error {
 	t.Helper()
 	if s.successorFee == nil {
 		successor, err := blocks.Range(ctx, e+1, e+1)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		s.successorFee = successor[0].BaseFee
 	}
@@ -198,4 +201,5 @@ func classify(ctx context.Context, t *testing.T, counts *feeHistoryCounts, s fee
 		t.Logf("block %d: next %s, bound %s, block %d's header %s, accepted before %t",
 			e, s.next, bound, e+1, s.successorFee, s.acceptedBefore)
 	}
+	return nil
 }

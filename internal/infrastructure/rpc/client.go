@@ -50,6 +50,7 @@ type Call func(ctx context.Context, c *rpc.Client) error
 type Client struct {
 	network   string
 	endpoints []endpoint
+	transport *http.Transport // owned, so Close can release its pooled connections
 	limiter   *rate.Limiter
 	cfg       Config
 	observer  Observer
@@ -63,12 +64,13 @@ type endpoint struct {
 // NewClient prepares a client per URL. HTTP dialling opens no connection until the first request.
 func NewClient(ctx context.Context, network string, cfg Config, observer Observer) (*Client, error) {
 	c := &Client{
-		network:  network,
-		limiter:  rate.NewLimiter(rate.Limit(cfg.RateLimit), cfg.Burst),
-		cfg:      cfg,
-		observer: observer,
+		network:   network,
+		transport: http.DefaultTransport.(*http.Transport).Clone(),
+		limiter:   rate.NewLimiter(rate.Limit(cfg.RateLimit), cfg.Burst),
+		cfg:       cfg,
+		observer:  observer,
 	}
-	httpClient := &http.Client{Timeout: cfg.Timeout}
+	httpClient := &http.Client{Timeout: cfg.Timeout, Transport: c.transport}
 	for _, raw := range cfg.URLs {
 		u, err := url.Parse(raw)
 		if err != nil {
@@ -88,11 +90,12 @@ func NewClient(ctx context.Context, network string, cfg Config, observer Observe
 	return c, nil
 }
 
-// Close releases every endpoint's client.
+// Close releases every endpoint's client and closes the connections they left idle.
 func (c *Client) Close() {
 	for _, e := range c.endpoints {
 		e.client.Close()
 	}
+	c.transport.CloseIdleConnections()
 }
 
 // Do runs call against each endpoint in turn until one succeeds or fails with a non-retryable error.
