@@ -8,9 +8,23 @@ import (
 	"time"
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/postgres"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/postgres/pgtest"
 )
+
+func TestSnapshotStoreContract(t *testing.T) {
+	gasometertest.SnapshotStore(t, func(t *testing.T) gasometer.SnapshotStore {
+		return postgres.NewSnapshotStore(pgtest.NewDatabase(t))
+	})
+}
+
+func TestPredictionStoreContract(t *testing.T) {
+	gasometertest.PredictionStore(t, func(t *testing.T) (gasometer.SnapshotStore, gasometer.PredictionStore) {
+		db := pgtest.NewDatabase(t)
+		return postgres.NewSnapshotStore(db), postgres.NewPredictionStore(db)
+	})
+}
 
 func TestSnapshotStoreRoundTrip(t *testing.T) {
 	store := postgres.NewSnapshotStore(pgtest.NewDatabase(t))

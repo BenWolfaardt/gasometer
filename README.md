@@ -169,6 +169,7 @@ The code follows Ben Johnson's [Standard Package Layout](https://medium.com/@ben
 | `internal/gasometer/score` | Scoring a bid over a block window, and its USD costs |
 | `internal/gasometer/poll` | Each network's collect, forecast and settle cycle |
 | `internal/gasometer/probe` | The tip ladder campaign |
+| `internal/gasometer/gasometertest` | The contract suite of each stateful port, run against both its fake and its adapter |
 | `internal/infrastructure/rpc`, `internal/infrastructure/sae`, `internal/infrastructure/postgres`, `internal/infrastructure/prometheus`, `internal/infrastructure/http` | One adapter per dependency; `sae` runs avalanchego's gas clock |
 | `internal/mock` | Hand-written mocks of every port |
 | `cmd/gasometer`, `cmd/probe` | Config and wiring for the service and the campaign |

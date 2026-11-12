@@ -38,6 +38,11 @@ type Probe struct {
 }
 
 // ProbeStore persists probes.
+//
+// Guarantees: Insert appends one record per call; inserting an identical probe twice keeps both.
+// Ordering: none.
+// Errors: the store's only.
+// Concurrency: safe for concurrent use.
 type ProbeStore interface {
 	Insert(ctx context.Context, p Probe) error
 }

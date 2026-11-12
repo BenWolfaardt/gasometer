@@ -31,7 +31,14 @@ type SAEModel interface {
 	Ceiling(blocks []SAEBlock) BaseFeeCeiling
 }
 
-// BlockStore persists per-block fee summaries.
+// BlockStore persists per-block fee summaries, per network.
+//
+// Guarantees: Upsert stores every block or none, overwriting every field of a block already stored; upserting no
+// blocks is a no-op. Range and Holes leave missing blocks out. Latest's ok is false while the network has no blocks.
+// Prune deletes across every network and returns the count it deleted.
+// Ordering: Range and Holes return ascending results.
+// Errors: ErrInsufficientHistory from AverageBlockTime until blocks from two polls are stored. Others are the store's.
+// Concurrency: safe for concurrent use.
 type BlockStore interface {
 	Upsert(ctx context.Context, network string, blocks []BlockFee) error
 	// Range returns stored blocks in [from, to], ascending; missing blocks are absent.
@@ -75,6 +82,12 @@ type MetricsRecorder interface {
 }
 
 // SnapshotStore persists fee snapshots.
+//
+// Guarantees: Insert returns a new ID, unique in the store. Get returns the snapshots it finds; an ID never stored is
+// absent from the map, not an error, and no IDs give an empty map.
+// Ordering: none.
+// Errors: the store's only.
+// Concurrency: safe for concurrent use.
 type SnapshotStore interface {
 	// Insert stores the snapshot and returns its ID.
 	Insert(ctx context.Context, snapshot FeeSnapshot) (int64, error)
@@ -82,6 +95,12 @@ type SnapshotStore interface {
 }
 
 // PredictionStore persists predictions and their scores.
+//
+// Guarantees: Insert stores every prediction given. Pending returns one network's predictions still pending. Settle
+// writes each prediction's status and score, so a settled prediction leaves Pending.
+// Ordering: Pending returns predictions in the order they were inserted.
+// Errors: the store's only.
+// Concurrency: safe for concurrent use.
 type PredictionStore interface {
 	Insert(ctx context.Context, predictions []Prediction) error
 	Pending(ctx context.Context, network string) ([]Prediction, error)

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/postgres"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/postgres/pgtest"
 )
@@ -25,6 +26,19 @@ type probeRow struct {
 	Outcome       string         `db:"outcome"`
 	Error         sql.NullString `db:"error"`
 	ReplacedBy    sql.NullString `db:"replaced_by"`
+}
+
+func TestProbeStoreContract(t *testing.T) {
+	gasometertest.ProbeStore(t, func(t *testing.T) (gasometer.ProbeStore, func() int) {
+		db := pgtest.NewDatabase(t)
+		return postgres.NewProbeStore(db), func() int {
+			var n int
+			if err := db.GetContext(t.Context(), &n, `SELECT count(*) FROM probes`); err != nil {
+				t.Error(err)
+			}
+			return n
+		}
+	})
 }
 
 func TestProbeStoreCheck(t *testing.T) {

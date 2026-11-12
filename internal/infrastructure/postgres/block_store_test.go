@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/postgres"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/postgres/pgtest"
 )
@@ -24,6 +25,30 @@ func blockRange(from, to uint64, at time.Time) []gasometer.BlockFee {
 		})
 	}
 	return out
+}
+
+func TestBlockStoreContract(t *testing.T) {
+	gasometertest.BlockStore(t, func(t *testing.T) gasometer.BlockStore {
+		return postgres.NewBlockStore(pgtest.NewDatabase(t))
+	})
+}
+
+// The second upsert chunk fails on its last block, after the first chunk's statement succeeded, so only a rollback of
+// the whole call leaves nothing stored.
+func TestBlockStoreUpsertIsAtomic(t *testing.T) {
+	store := postgres.NewBlockStore(pgtest.NewDatabase(t))
+	batch := blockRange(1, 1_001, t0)
+	batch[len(batch)-1].BaseFee = nil
+	if err := store.Upsert(t.Context(), "base", batch); err == nil {
+		t.Fatal("upsert with a NULL base fee succeeded")
+	}
+	got, err := store.Range(t.Context(), "base", 1, 1_001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("%d blocks stored from a failed upsert", len(got))
+	}
 }
 
 func TestBlockStoreRoundTrip(t *testing.T) {
