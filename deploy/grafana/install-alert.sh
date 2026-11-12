@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
-# Installs alert-rule.json and alert-rule-logs.json into a Grafana stack, replacing any earlier copies.
+# Installs alert-rule.json and alert-rule-logs.json into a Grafana stack, replacing any earlier copies. Reads these
+# from deploy/grafana/.env when it exists (copy .env.example), else from the environment:
 #   GRAFANA_URL          e.g. https://<stack>.grafana.net
 #   GRAFANA_TOKEN        a service account token with the Admin role (Editor gets 403 on alert-rule provisioning)
 #   DATASOURCE_UID       the Prometheus data source the dashboard uses
 #   LOKI_DATASOURCE_UID  the Loki data source the dashboard's logs panel uses
 set -euo pipefail
 
-: "${GRAFANA_URL:?}" "${GRAFANA_TOKEN:?}" "${DATASOURCE_UID:?}" "${LOKI_DATASOURCE_UID:?}"
 dir=$(cd "$(dirname "$0")" && pwd)
+if [[ -f "${dir}/.env" ]]; then
+	set -a
+	# shellcheck source=/dev/null
+	. "${dir}/.env"
+	set +a
+fi
+: "${GRAFANA_URL:?}" "${GRAFANA_TOKEN:?}" "${DATASOURCE_UID:?}" "${LOKI_DATASOURCE_UID:?}"
 
 # Writes the response body to $1 and prints the HTTP status without failing on it, so each caller decides which
 # statuses are fine.

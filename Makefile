@@ -90,6 +90,10 @@ compose-up: ## Start gasometer, Postgres and Alloy (needs deploy/.env)
 compose-down: ## Stop the compose stack, keeping the database volume
 	$(COMPOSE) -f $(COMPOSE_FILE) down
 
+.PHONY: install-alerts
+install-alerts: ## Install both Grafana alert rules (needs deploy/grafana/.env)
+	deploy/grafana/install-alert.sh
+
 .PHONY: pre-commit
 pre-commit: ## Run every pre-commit hook over the repo
 	pre-commit run --all-files

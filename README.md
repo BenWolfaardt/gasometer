@@ -129,12 +129,12 @@ This starts gasometer, Postgres and Grafana Alloy under Docker Compose or `podma
 | --- | --- |
 | Dashboard | Import `deploy/grafana/gasometer.json` |
 | Logs | Grafana Cloud Loki, `{service_name="gasometer", host="gasometer"}`, and the dashboard's Logs panel. See [Logs](#logs) |
-| Alerts | `gasometer-stalled` fires after about 8 minutes without a poll; `gasometer-logs-absent` after about 15 minutes without a tick line in Loki. Install both with `deploy/grafana/install-alert.sh` |
+| Alerts | `gasometer-stalled` fires after about 8 minutes without a poll; `gasometer-logs-absent` after about 15 minutes without a tick line in Loki. Install both with `make install-alerts` |
 | Config | [configs/gasometer.yml](configs/gasometer.yml). Any key also takes a flag (`--poll-interval`) or env var (`GASOMETER_POLL_INTERVAL`) |
 | Endpoints | `/metrics`, `/healthz` and `/readyz` on port 9090 |
 | Storage | Blocks for 30 days, snapshots and predictions kept, about 10 MB a day |
 
-The alert script reads `GRAFANA_URL`, `GRAFANA_TOKEN` (a service account with the Admin role, which alert-rule provisioning requires), `DATASOURCE_UID` (Prometheus) and `LOKI_DATASOURCE_UID`.
+`make install-alerts` runs the alert script, which reads `GRAFANA_URL`, `GRAFANA_TOKEN` (a service account with the Admin role, which alert-rule provisioning requires), `DATASOURCE_UID` (Prometheus) and `LOKI_DATASOURCE_UID` from `deploy/grafana/.env` (copy `deploy/grafana/.env.example`).
 
 Without Compose, against your own Postgres (migrations run at startup):
 

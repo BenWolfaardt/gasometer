@@ -3,4 +3,6 @@
 *.out
 coverage.*
 deploy/.env
+deploy/grafana/.env
 /gasometer
+!.env.example
