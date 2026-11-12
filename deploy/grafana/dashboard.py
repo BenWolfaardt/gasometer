@@ -6,7 +6,8 @@ import sys
 DS = {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}
 NETWORKS = [("cchain", "Avalanche C-Chain"), ("base", "Base"), ("op", "Optimism")]
 SHOWN = [("market", "Market"), ("node", "Node"), ("gasometer", "gasometer")]
-SEL = 'tx="native",horizon="30s",predictor=~"market|node|gasometer"'
+HOST = 'host!="compose"'
+SEL = f'{HOST},tx="native",horizon="30s",predictor=~"market|node|gasometer"'
 COMPONENTS = [("base_fee", "Base fee"), ("l1_fee", "L1 data fee"), ("tip", "Tip needed")]
 COLORS = {"Base fee": "#5794F2", "L1 data fee": "#B877D9", "Tip needed": "#73BF69", "Overpaid": "#F2495C"}
 LINE_COLORS = {"Market": "#FF9830", "Node": "#B877D9", "gasometer": "#73BF69"}
@@ -147,7 +148,7 @@ def stat(title, x, expr, description, unit, steps):
             "gridPos": {"x": x, "y": y, "w": 6, "h": 5},
             "targets": [{"datasource": DS, "refId": chr(ord("A") + i), "legendFormat": name.removeprefix("Avalanche "),
                          "instant": True,
-                         "range": False, "expr": expr.replace("NETWORK", f'network="{net}"')}
+                         "range": False, "expr": expr.replace("NETWORK", f'{HOST},network="{net}"')}
                         for i, (net, name) in enumerate(NETWORKS)],
             "fieldConfig": {"defaults": {"unit": unit, "decimals": 0,
                                          "thresholds": {"mode": "absolute", "steps": steps}}, "overrides": []},
@@ -169,7 +170,7 @@ add(stat("Blocks lost", 18, "sum (increase(gasometer_blocks_lost_total{NETWORK}[
 y += 5
 
 row("Data collected")
-collecting = relabel("max by (network) (changes(gasometer_last_poll_timestamp_seconds[$__interval]) > bool 0)",
+collecting = relabel(f"max by (network) (changes(gasometer_last_poll_timestamp_seconds{{{HOST}}}[$__interval]) > bool 0)",
                      "network", NETWORKS)
 add({"type": "state-timeline", "title": "", "datasource": DS, "interval": "3m",
      "description": "Red where polls stalled, so the charts cover less of the range.",

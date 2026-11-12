@@ -6,7 +6,10 @@ prometheus.scrape "gasometer" {
 	forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
 }
 
+// host tells the VM's series from a local compose stack's, which scrapes the same target under the same job.
 prometheus.remote_write "grafana_cloud" {
+	external_labels = {"host" = coalesce(sys.env("GASOMETER_HOST"), "gasometer")}
+
 	endpoint {
 		url = sys.env("GRAFANA_CLOUD_PROMETHEUS_URL")
 

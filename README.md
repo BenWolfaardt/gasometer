@@ -123,7 +123,7 @@ cp deploy/.env.example deploy/.env    # Postgres password and Grafana Cloud cred
 make compose-up
 ```
 
-This starts gasometer, Postgres and Grafana Alloy under Docker Compose or `podman compose`. Alloy pushes the metrics to Grafana Cloud.
+This starts gasometer, Postgres and Grafana Alloy under Docker Compose or `podman compose`. Alloy pushes the metrics and the containers' logs to Grafana Cloud. Both carry `host="compose"`, and the dashboard and alerts select `host!="compose"`, so a local stack can share the production stack without showing on its dashboard or silencing its alerts.
 
 | What | How |
 | --- | --- |

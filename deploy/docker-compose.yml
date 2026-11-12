@@ -35,6 +35,8 @@ services:
     restart: unless-stopped
     command: ["run", "--storage.path=/var/lib/alloy/data", "/etc/alloy"]
     env_file: .env
+    environment:
+      GASOMETER_HOST: compose
     volumes:
       - ./alloy:/etc/alloy:ro
       - ${CONTAINER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock:ro

@@ -16,7 +16,7 @@
       "refId": "A",
       "datasourceUid": "${DATASOURCE_UID}",
       "relativeTimeRange": {"from": 600, "to": 0},
-      "model": {"refId": "A", "expr": "time() - max by (network) (gasometer_last_poll_timestamp_seconds)", "instant": true}
+      "model": {"refId": "A", "expr": "time() - max by (network) (gasometer_last_poll_timestamp_seconds{host!=\"compose\"})", "instant": true}
     },
     {
       "refId": "C",
