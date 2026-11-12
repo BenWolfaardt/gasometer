@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -67,7 +68,7 @@ jobs:
   image:
     name: publish image
     needs: [go, integration]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -77,6 +78,8 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       # The homelab VM orders images by this label and refuses to go backwards, so it is the commit time, not the build time.
       - name: commit time
         id: created
@@ -87,7 +90,28 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+      # Diffs from what :main carries, not from the push's before, so a change whose publish failed still ships on the next push.
+      - name: image inputs
+        id: inputs
+        run: |
+          published=$(docker buildx imagetools inspect ghcr.io/benwolfaardt/gasometer:main \
+            --format '{{index .Image.Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)
+          if [[ "${GITHUB_EVENT_NAME}" != push || -z "${published}" ]] || ! git cat-file -e "${published}^{commit}" 2>/dev/null; then
+            echo "publishing: event ${GITHUB_EVENT_NAME}, published revision '${published}'"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(git diff --name-only "${published}" "${GITHUB_SHA}" -- Containerfile .dockerignore go.mod go.sum configs cmd internal \
+            ':(exclude,glob)**/*_test.go' ':(exclude,glob)**/testdata/**')
+          if [[ -n "${files}" ]]; then
+            printf 'publishing; image inputs changed since %s:\n%s\n' "${published}" "${files}"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "not publishing: no image input changed since ${published}"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.inputs.outputs.changed == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: Containerfile

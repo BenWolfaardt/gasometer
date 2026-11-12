@@ -133,6 +133,7 @@ This starts gasometer, Postgres and Grafana Alloy under Docker Compose or `podma
 | Config | [configs/gasometer.yml](configs/gasometer.yml). Any key also takes a flag (`--poll-interval`) or env var (`GASOMETER_POLL_INTERVAL`) |
 | Endpoints | `/metrics`, `/healthz` and `/readyz` on port 9090 |
 | Storage | Blocks for 30 days, snapshots and predictions kept, about 10 MB a day |
+| Deploys | A push to main publishes an image, and so deploys, only when `Containerfile`, Go sources, `go.mod`/`go.sum` or `configs/` change. Dispatch the ci workflow on main to force one |
 
 `make install-alerts` runs the alert script, which reads `GRAFANA_URL`, `GRAFANA_TOKEN` (a service account with the Admin role, which alert-rule provisioning requires), `DATASOURCE_UID` (Prometheus) and `LOKI_DATASOURCE_UID` from `deploy/grafana/.env` (copy `deploy/grafana/.env.example`).
 
