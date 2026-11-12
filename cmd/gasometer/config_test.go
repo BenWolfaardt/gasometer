@@ -63,6 +63,25 @@ func TestRepositoryConfigLoads(t *testing.T) {
 	if cfg.Gasometer.GrowthWindow != time.Hour || len(cfg.ReferenceTxs) != 2 || cfg.ReferenceTxs[1].DataSize != 68 {
 		t.Fatalf("gasometer %+v, txs %+v", cfg.Gasometer, cfg.ReferenceTxs)
 	}
+	// Every network keeps the 1,024 it ran on when both bounds were the fee history batch.
+	for _, n := range cfg.Networks {
+		if n.FeeHistoryBatch != 1024 || n.CatchUpBlocks != 1024 || n.BackfillStep != 1024 {
+			t.Errorf("%s: batch %d, catch-up %d, backfill step %d", n.Name, n.FeeHistoryBatch, n.CatchUpBlocks, n.BackfillStep)
+		}
+	}
+}
+
+func TestNetworkBounds(t *testing.T) {
+	t.Setenv(envVarName(databaseURLKey), "postgres://x")
+	yaml := strings.Replace(minimalYAML, "history-depth: 100000",
+		"history-depth: 2000\n    fee-history-batch: 5000\n    catch-up-blocks: 2000\n    backfill-step: 7", 1)
+	cfg, err := load(t, "--"+configFileKey, writeConfig(t, yaml))
+	if err != nil {
+		t.Fatalf("a batch above the depth and catch-up at the depth must load: %v", err)
+	}
+	if n := cfg.Networks[0]; n.FeeHistoryBatch != 5000 || n.CatchUpBlocks != 2000 || n.BackfillStep != 7 {
+		t.Fatalf("network %+v", n)
+	}
 }
 
 func TestDefaults(t *testing.T) {
@@ -72,7 +91,8 @@ func TestDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := cfg.Networks[0]
-	if n.RequiredTipPercentile != 5 || n.FeeHistoryBatch != 1024 || n.InitialBackfill != 1024 || n.RPC.RateLimit != 5 || n.RPC.Burst != 10 ||
+	if n.RequiredTipPercentile != 5 || n.FeeHistoryBatch != 1024 || n.InitialBackfill != 1024 || n.CatchUpBlocks != 1024 ||
+		n.BackfillStep != 1024 || n.RPC.RateLimit != 5 || n.RPC.Burst != 10 ||
 		n.RPC.Timeout != 10*time.Second || n.RPC.MaxRetries != 3 || n.RPC.InitialBackoff != 500*time.Millisecond {
 		t.Fatalf("network defaults %+v", n)
 	}
@@ -177,7 +197,11 @@ func TestValidation(t *testing.T) {
 		{"price max age", nil, [2]string{"price-max-age: 1h", "price-max-age: 0s"}, errInvalidPriceMaxAge},
 		{"tip percentile", nil, [2]string{"history-depth: 100000", "history-depth: 100000\n    required-tip-percentile: 101"}, errInvalidTipPercentile},
 		{"history depth", nil, [2]string{"history-depth: 100000", "history-depth: 0"}, errInvalidHistoryDepth},
-		{"batch beyond depth", nil, [2]string{"history-depth: 100000", "history-depth: 1023"}, errBatchBeyondDepth},
+		{"fee history batch", nil, [2]string{"history-depth: 100000", "history-depth: 100000\n    fee-history-batch: 0"}, errInvalidHistoryDepth},
+		{"initial backfill", nil, [2]string{"history-depth: 100000", "history-depth: 100000\n    initial-backfill: 0"}, errInvalidHistoryDepth},
+		{"catch-up blocks", nil, [2]string{"history-depth: 100000", "history-depth: 100000\n    catch-up-blocks: 0"}, errInvalidHistoryDepth},
+		{"backfill step", nil, [2]string{"history-depth: 100000", "history-depth: 100000\n    backfill-step: 0"}, errInvalidHistoryDepth},
+		{"catch-up beyond depth", nil, [2]string{"history-depth: 100000", "history-depth: 1023"}, errCatchUpBeyondDepth},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

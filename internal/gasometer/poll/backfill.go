@@ -14,7 +14,7 @@ import (
 // BackfillerParams are a backfiller's decisions for one network.
 type BackfillerParams struct {
 	RequiredTipPercentile float64 // eth_feeHistory percentile taken as the required tip
-	Chunk                 uint64  // blocks stored per step, so a timeout loses at most one step
+	Step                  uint64  // blocks stored per step, so a timeout loses at most one step
 }
 
 // BackfillerDeps are a backfiller's collaborators.
@@ -41,7 +41,7 @@ type Backfiller struct {
 
 // NewBackfiller builds the backfiller for one network.
 func NewBackfiller(network string, params BackfillerParams, deps BackfillerDeps) *Backfiller {
-	params.Chunk = max(1, params.Chunk)
+	params.Step = max(1, params.Step)
 	return &Backfiller{network: network, params: params, deps: deps, log: deps.Log.With("network", network)}
 }
 
@@ -102,7 +102,7 @@ func (b *Backfiller) fill(ctx context.Context, hole gasometer.BlockRange) (int, 
 	}
 	stored := 0
 	for start := hole.From; start <= hole.To; {
-		end := min(start+b.params.Chunk-1, hole.To)
+		end := min(start+b.params.Step-1, hole.To)
 		history, err := b.deps.Fees.FeeHistory(ctx, start, end, fee.RewardPercentiles(b.params.RequiredTipPercentile))
 		if errors.Is(err, gasometer.ErrBeyondHistory) {
 			lost = &gasometer.BlockRange{From: hole.From, To: end}

@@ -41,7 +41,7 @@ func newBackfillFixture(t *testing.T) *backfillFixture {
 }
 
 func (f *backfillFixture) backfiller() *poll.Backfiller {
-	return poll.NewBackfiller("base", poll.BackfillerParams{RequiredTipPercentile: 5, Chunk: 30}, poll.BackfillerDeps{
+	return poll.NewBackfiller("base", poll.BackfillerParams{RequiredTipPercentile: 5, Step: 30}, poll.BackfillerDeps{
 		Fees: f.fees, Blocks: f.blocks, Metrics: f.metrics, Now: clock(backfilling), Log: nopLog,
 	})
 }
@@ -167,7 +167,7 @@ func TestBackfillWarnsWhenTheDeadlineLeavesNoProgress(t *testing.T) {
 				return syntheticHistory(from, to, modelNext), nil
 			}
 			var logs bytes.Buffer
-			b := poll.NewBackfiller("base", poll.BackfillerParams{RequiredTipPercentile: 5, Chunk: 30}, poll.BackfillerDeps{
+			b := poll.NewBackfiller("base", poll.BackfillerParams{RequiredTipPercentile: 5, Step: 30}, poll.BackfillerDeps{
 				Fees: f.fees, Blocks: f.blocks, Metrics: f.metrics, Now: clock(backfilling), Log: slog.New(slog.NewTextHandler(&logs, nil)),
 			})
 			if _, err := b.Backfill(ctx); err != nil {

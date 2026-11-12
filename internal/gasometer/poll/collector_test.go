@@ -138,7 +138,7 @@ func TestCollectorFetchRange(t *testing.T) {
 func TestCollectorFirstRunIsNotChunked(t *testing.T) {
 	f := newCollectFixture(5_000, modelNext)
 	params := collectorParams
-	params.InitialBackfill, params.Chunk = 3_000, 100
+	params.InitialBackfill, params.MaxCatchUp = 3_000, 100
 	if _, err := f.collector(baseNet, params).Collect(t.Context()); err != nil {
 		t.Fatal(err)
 	}

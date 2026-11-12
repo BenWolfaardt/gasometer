@@ -230,8 +230,10 @@ type networkConfig struct {
 	PriceMaxAge           time.Duration `mapstructure:"price-max-age"`
 	RequiredTipPercentile float64       `mapstructure:"required-tip-percentile"`
 	HistoryDepth          uint64        `mapstructure:"history-depth"`
-	FeeHistoryBatch       uint64        `mapstructure:"fee-history-batch"`
+	FeeHistoryBatch       uint64        `mapstructure:"fee-history-batch"` // the RPC's per-call cap
 	InitialBackfill       uint64        `mapstructure:"initial-backfill"`
+	CatchUpBlocks         uint64        `mapstructure:"catch-up-blocks"` // most blocks a live poll fetches behind head
+	BackfillStep          uint64        `mapstructure:"backfill-step"`   // blocks one backfill step stores
 }
 
 // rpcConfig is a network's rpc block.
@@ -254,6 +256,8 @@ var (
 		RequiredTipPercentile: 5,
 		FeeHistoryBatch:       1024,
 		InitialBackfill:       1024,
+		CatchUpBlocks:         1024,
+		BackfillStep:          1024,
 		RPC: rpcConfig{
 			RateLimit:      5,
 			Burst:          10,
@@ -294,8 +298,8 @@ var (
 	errInvalidPriceFeed       = invalid("price feed must be a hex address")
 	errInvalidPriceMaxAge     = invalid("price max age must be positive")
 	errInvalidTipPercentile   = invalid("required tip percentile must be in [0, 100]")
-	errInvalidHistoryDepth    = invalid("history depth and fee history batch must be at least 1")
-	errBatchBeyondDepth       = invalid("fee history batch must not exceed history depth")
+	errInvalidHistoryDepth    = invalid("history depth, fee history batch, initial backfill, catch-up blocks and backfill step must be at least 1")
+	errCatchUpBeyondDepth     = invalid("catch-up blocks must not exceed history depth")
 	errDecodeList             = invalid("decode config list")
 )
 
@@ -509,12 +513,13 @@ func validateNetwork(n networkConfig) error {
 	if n.RequiredTipPercentile < 0 || n.RequiredTipPercentile > 100 {
 		return fmt.Errorf("%w: %v", errInvalidTipPercentile, n.RequiredTipPercentile)
 	}
-	if n.HistoryDepth < 1 || n.FeeHistoryBatch < 1 || n.InitialBackfill < 1 {
-		return fmt.Errorf("%w: depth %d, batch %d, backfill %d", errInvalidHistoryDepth, n.HistoryDepth, n.FeeHistoryBatch, n.InitialBackfill)
+	if n.HistoryDepth < 1 || n.FeeHistoryBatch < 1 || n.InitialBackfill < 1 || n.CatchUpBlocks < 1 || n.BackfillStep < 1 {
+		return fmt.Errorf("%w: depth %d, batch %d, initial backfill %d, catch-up %d, backfill step %d", errInvalidHistoryDepth,
+			n.HistoryDepth, n.FeeHistoryBatch, n.InitialBackfill, n.CatchUpBlocks, n.BackfillStep)
 	}
-	// The live poll fetches one batch, which must lie within the depth or it would lose blocks of its own.
-	if n.FeeHistoryBatch > n.HistoryDepth {
-		return fmt.Errorf("%w: batch %d, depth %d", errBatchBeyondDepth, n.FeeHistoryBatch, n.HistoryDepth)
+	// A live poll reaching further back than the depth would ask for blocks the source no longer serves.
+	if n.CatchUpBlocks > n.HistoryDepth {
+		return fmt.Errorf("%w: catch-up %d, depth %d", errCatchUpBeyondDepth, n.CatchUpBlocks, n.HistoryDepth)
 	}
 	return nil
 }

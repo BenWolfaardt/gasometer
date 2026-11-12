@@ -29,7 +29,7 @@ type CollectorParams struct {
 	RequiredTipPercentile float64 // eth_feeHistory percentile taken as the required tip
 	PriceMaxAge           time.Duration
 	InitialBackfill       uint64 // blocks fetched on a first run
-	Chunk                 uint64 // most blocks a later poll fetches; anything older is left to the backfiller
+	MaxCatchUp            uint64 // most blocks a later poll fetches behind head; anything older is left to the backfiller
 }
 
 // CollectorDeps are a collector's collaborators. Prices and L1Fees may be nil, and SAE and SAEModel are nil except on
@@ -121,7 +121,7 @@ func (c *Collector) firstBlock(ctx context.Context, head uint64) (uint64, error)
 	case latest >= head:
 		return head, nil
 	default:
-		return max(latest+1, blocksBack(head, c.params.Chunk)), nil
+		return max(latest+1, blocksBack(head, c.params.MaxCatchUp)), nil
 	}
 }
 

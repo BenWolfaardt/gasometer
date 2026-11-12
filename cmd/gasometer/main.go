@@ -152,9 +152,9 @@ func pollTick(cfg fileConfig, n networkConfig, client *rpc.Client, s stores, log
 		RequiredTipPercentile: n.RequiredTipPercentile,
 		PriceMaxAge:           n.PriceMaxAge,
 		InitialBackfill:       n.InitialBackfill,
-		Chunk:                 n.FeeHistoryBatch,
+		MaxCatchUp:            n.CatchUpBlocks,
 	}
-	backfillerParams := poll.BackfillerParams{RequiredTipPercentile: n.RequiredTipPercentile, Chunk: n.FeeHistoryBatch}
+	backfillerParams := poll.BackfillerParams{RequiredTipPercentile: n.RequiredTipPercentile, Step: n.BackfillStep}
 	settlerParams := poll.SettlerParams{ExpiryFactor: cfg.Scoring.ExpiryFactor, PriceMaxAge: n.PriceMaxAge}
 	backfiller := poll.NewBackfiller(n.Name, backfillerParams, poll.BackfillerDeps{
 		Fees: fees, Blocks: s.blocks, Metrics: s.metrics, Now: time.Now, Log: log,
