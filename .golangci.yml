@@ -12,7 +12,45 @@ linters:
     - misspell
     - unconvert
     - revive
+    - depguard
   settings:
+    # The dependency rule: the vocabulary depends on nothing, capability packages only on it, poll also on the pure
+    # fee and score, and the test helpers only from tests. A trailing $ matches exactly, so allowing the vocabulary
+    # does not allow its subpackages.
+    depguard:
+      rules:
+        vocabulary:
+          list-mode: strict
+          files: ["**/internal/gasometer/*.go", "!$test"]
+          allow: [$gostd]
+        capabilities:
+          list-mode: strict
+          files:
+            - "**/internal/gasometer/fee/*.go"
+            - "**/internal/gasometer/predict/*.go"
+            - "**/internal/gasometer/score/*.go"
+            - "**/internal/gasometer/probe/*.go"
+            - "**/internal/gasometer/gasometertest/*.go"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/BenWolfaardt/gasometer/internal/gasometer$
+        orchestrator:
+          list-mode: strict
+          files: ["**/internal/gasometer/poll/*.go", "!$test"]
+          allow:
+            - $gostd
+            - github.com/BenWolfaardt/gasometer/internal/gasometer$
+            - github.com/BenWolfaardt/gasometer/internal/gasometer/fee$
+            - github.com/BenWolfaardt/gasometer/internal/gasometer/score$
+        test-helpers:
+          list-mode: lax
+          files: ["$all", "!$test"]
+          deny:
+            - pkg: github.com/BenWolfaardt/gasometer/internal/mock
+              desc: mocks are for tests
+            - pkg: github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest
+              desc: contract suites are for tests
     revive:
       rules:
         - name: exported

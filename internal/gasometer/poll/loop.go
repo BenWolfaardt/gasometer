@@ -37,14 +37,16 @@ func (l *Loop) Run(ctx context.Context) {
 	}
 }
 
-// runTick detaches the tick from ctx so a shutdown lets its writes finish, then cancels it after the grace period.
+// runTick detaches the tick from ctx so a shutdown lets its writes finish, then cancels it after the grace period. It
+// returns only once the shutdown callback, if it started, has returned too.
 func (l *Loop) runTick(parent context.Context) {
 	if parent.Err() != nil {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), l.interval)
-	defer cancel()
+	exited := make(chan struct{})
 	stop := context.AfterFunc(parent, func() {
+		defer close(exited)
 		grace := time.NewTimer(l.grace)
 		defer grace.Stop()
 		select {
@@ -53,6 +55,12 @@ func (l *Loop) runTick(parent context.Context) {
 		case <-ctx.Done():
 		}
 	})
-	defer stop()
+	defer func() {
+		// Cancelling first ends the callback's select, so the wait is one scheduler hop.
+		cancel()
+		if !stop() {
+			<-exited
+		}
+	}()
 	l.tick(ctx)
 }

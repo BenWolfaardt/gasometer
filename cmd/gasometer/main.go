@@ -87,8 +87,8 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		}
 		loops = append(loops, poll.NewLoop(cfg.Schedule.PollInterval, poll.ShutdownGrace, tick))
 	}
-	pruner := poll.NewPruner(stores.blocks, cfg.Schedule.BlockRetention, time.Now)
-	loops = append(loops, poll.NewLoop(pruneInterval, poll.ShutdownGrace, poll.NewPruneTick(pruner, log)))
+	prune := poll.NewPruneTick(stores.blocks, cfg.Schedule.BlockRetention, time.Now, log)
+	loops = append(loops, poll.NewLoop(pruneInterval, poll.ShutdownGrace, prune))
 
 	listener, err := net.Listen("tcp", cfg.HTTP.ListenAddress)
 	if err != nil {
@@ -126,7 +126,11 @@ func pollTick(cfg fileConfig, n networkConfig, client *rpc.Client, s stores, log
 		return nil, err
 	}
 	txs := referenceTxs(cfg)
-	gasometerParams := predict.Params(cfg.Gasometer)
+	forecasterParams := poll.ForecasterParams{
+		HorizonSeconds: cfg.Scoring.Horizons,
+		GrowthWindow:   cfg.Gasometer.GrowthWindow,
+		TipWindow:      cfg.Gasometer.TipWindow,
+	}
 
 	fees := rpc.NewFeeSource(client, rpc.FeeSourceLimits{HistoryDepth: n.HistoryDepth, Batch: n.FeeHistoryBatch})
 	collectorDeps := poll.CollectorDeps{
@@ -158,7 +162,7 @@ func pollTick(cfg fileConfig, n networkConfig, client *rpc.Client, s stores, log
 
 	return poll.NewTick(n.Name, poll.TickDeps{
 		Collector: poll.NewCollector(network, collectorParams, txs, collectorDeps),
-		Forecaster: poll.NewForecaster(n.Name, cfg.Scoring.Horizons, gasometerParams, poll.ForecasterDeps{
+		Forecaster: poll.NewForecaster(n.Name, forecasterParams, poll.ForecasterDeps{
 			Predictors: predictors, Blocks: s.blocks, Predictions: s.predictions, Log: log,
 		}),
 		Settler: poll.NewSettler(n.Name, settlerParams, txs, poll.SettlerDeps{

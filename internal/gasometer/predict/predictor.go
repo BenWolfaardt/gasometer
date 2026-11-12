@@ -4,7 +4,6 @@ package predict
 import (
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
 )
@@ -79,14 +78,6 @@ func baselineBid(nextBaseFee, tip *big.Int, multiplier int64) (gasometer.Bid, er
 		MaxFee:          maxFee.Add(maxFee, tip),
 		ExpectedBaseFee: new(big.Int).Set(nextBaseFee),
 	}, nil
-}
-
-// Params tune the gasometer predictor and the history the forecaster loads for it.
-type Params struct {
-	TipQuantile    float64
-	TipWindow      int // horizon-long windows, one ending at each of this many recent blocks
-	GrowthQuantile float64
-	GrowthWindow   time.Duration
 }
 
 // Gasometer bids a quantile of recent window-cheapest required tips on top of a projected upper base fee. A bid

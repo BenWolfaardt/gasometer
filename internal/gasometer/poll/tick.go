@@ -2,7 +2,6 @@ package poll
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -49,35 +48,14 @@ func NewTick(network string, deps TickDeps) Tick {
 	}
 }
 
-// NewPruneTick drops block rows past retention.
-func NewPruneTick(pruner *Pruner, log *slog.Logger) Tick {
+// NewPruneTick deletes the blocks of every network observed more than retention before now.
+func NewPruneTick(blocks gasometer.BlockStore, retention time.Duration, now func() time.Time, log *slog.Logger) Tick {
 	return func(ctx context.Context) {
-		n, err := pruner.Prune(ctx)
+		n, err := blocks.Prune(ctx, now().Add(-retention))
 		if err != nil {
 			log.Warn("prune failed", "err", err)
 			return
 		}
 		log.Debug("pruned", "blocks", n)
 	}
-}
-
-// Pruner drops block rows past retention.
-type Pruner struct {
-	blocks    gasometer.BlockStore
-	retention time.Duration
-	now       func() time.Time
-}
-
-// NewPruner builds the pruner.
-func NewPruner(blocks gasometer.BlockStore, retention time.Duration, now func() time.Time) *Pruner {
-	return &Pruner{blocks: blocks, retention: retention, now: now}
-}
-
-// Prune deletes blocks observed before now minus retention and returns how many.
-func (p *Pruner) Prune(ctx context.Context) (int64, error) {
-	n, err := p.blocks.Prune(ctx, p.now().Add(-p.retention))
-	if err != nil {
-		return 0, fmt.Errorf("prune blocks: %w", err)
-	}
-	return n, nil
 }

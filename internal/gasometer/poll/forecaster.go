@@ -9,8 +9,14 @@ import (
 	"time"
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
-	"github.com/BenWolfaardt/gasometer/internal/gasometer/predict"
 )
+
+// ForecasterParams are a forecaster's decisions for one network.
+type ForecasterParams struct {
+	HorizonSeconds []int
+	GrowthWindow   time.Duration // base fee history the projections read
+	TipWindow      int           // horizon-long windows of required tips, one ending at each of this many recent blocks
+}
 
 // ForecasterDeps are a forecaster's collaborators.
 type ForecasterDeps struct {
@@ -22,22 +28,15 @@ type ForecasterDeps struct {
 
 // Forecaster runs every predictor at every horizon against an observation and stores the predictions.
 type Forecaster struct {
-	network        string
-	horizonSeconds []int
-	params         predict.Params
-	deps           ForecasterDeps
-	log            *slog.Logger
+	network string
+	params  ForecasterParams
+	deps    ForecasterDeps
+	log     *slog.Logger
 }
 
 // NewForecaster builds the forecaster for one network.
-func NewForecaster(network string, horizonSeconds []int, params predict.Params, deps ForecasterDeps) *Forecaster {
-	return &Forecaster{
-		network:        network,
-		horizonSeconds: horizonSeconds,
-		params:         params,
-		deps:           deps,
-		log:            deps.Log.With("network", network),
-	}
+func NewForecaster(network string, params ForecasterParams, deps ForecasterDeps) *Forecaster {
+	return &Forecaster{network: network, params: params, deps: deps, log: deps.Log.With("network", network)}
 }
 
 // Forecast stores one prediction per predictor and horizon and returns how many it made.
@@ -50,7 +49,7 @@ func (f *Forecaster) Forecast(ctx context.Context, obs Observation) (int, error)
 	if err != nil {
 		return 0, fmt.Errorf("measure block time: %w", err)
 	}
-	horizons, err := Horizons(f.horizonSeconds, avg)
+	horizons, err := Horizons(f.params.HorizonSeconds, avg)
 	if err != nil {
 		return 0, err
 	}

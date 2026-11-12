@@ -1,8 +1,11 @@
 package poll_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,7 +21,7 @@ func pollFixture(fees *mock.FeeSource, blocks *mock.BlockStore) (poll.Tick, *moc
 	collector := poll.NewCollector(baseNet, collectorParams, refTxs, poll.CollectorDeps{
 		Fees: fees, Blocks: blocks, Snapshots: snapshots, Metrics: rec, Now: clock(t0), Log: nopLog,
 	})
-	forecaster := poll.NewForecaster("base", []int{2}, gasometerParams, poll.ForecasterDeps{
+	forecaster := poll.NewForecaster("base", forecasterParams(2), poll.ForecasterDeps{
 		Predictors: []gasometer.Predictor{predict.NewNode()}, Blocks: blocks, Predictions: predictions, Log: nopLog,
 	})
 	backfiller := poll.NewBackfiller("base", poll.BackfillerParams{RequiredTipPercentile: 5, Chunk: 1024}, poll.BackfillerDeps{
@@ -81,21 +84,26 @@ func TestPollTickSkipsAfterFailedCollect(t *testing.T) {
 	}
 }
 
-func TestPruneTick(t *testing.T) {
+func TestPruneTickCutsAtRetention(t *testing.T) {
 	blocks := mock.NewBlockStore()
-	poll.NewPruneTick(poll.NewPruner(blocks, time.Hour, clock(t0)), nopLog)(context.Background())
+	poll.NewPruneTick(blocks, time.Hour, clock(t0), nopLog)(context.Background())
 	if len(blocks.PruneCuts) != 1 || !blocks.PruneCuts[0].Equal(t0.Add(-time.Hour)) {
 		t.Fatalf("prune cuts %v", blocks.PruneCuts)
 	}
 }
 
-func TestPrune(t *testing.T) {
+func TestPruneTickLogsTheCount(t *testing.T) {
 	blocks := mock.NewBlockStore()
 	_ = blocks.Upsert(t.Context(), "base", []gasometer.BlockFee{
 		{Number: 1, ObservedAt: t0.Add(-49 * time.Hour)}, {Number: 2, ObservedAt: t0.Add(-47 * time.Hour)},
 	})
-	n, err := poll.NewPruner(blocks, 48*time.Hour, clock(t0)).Prune(t.Context())
-	if err != nil || n != 1 || !blocks.PruneCuts[0].Equal(t0.Add(-48*time.Hour)) {
-		t.Fatalf("n %d, err %v, cuts %v", n, err, blocks.PruneCuts)
+	var logged bytes.Buffer
+	log := slog.New(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	poll.NewPruneTick(blocks, 48*time.Hour, clock(t0), log)(t.Context())
+	if !strings.Contains(logged.String(), "msg=pruned blocks=1") {
+		t.Fatalf("log %q", logged.String())
+	}
+	if got, _ := blocks.Range(t.Context(), "base", 0, 10); len(got) != 1 || got[0].Number != 2 {
+		t.Fatalf("left %+v", got)
 	}
 }

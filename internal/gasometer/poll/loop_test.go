@@ -2,6 +2,8 @@ package poll_test
 
 import (
 	"context"
+	"runtime"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -116,5 +118,21 @@ func TestLoopBoundsTickByInterval(t *testing.T) {
 	poll.NewLoop(time.Minute, time.Second, tick).Run(ctx)
 	if d := <-deadline; d <= 50*time.Second || d > time.Minute {
 		t.Fatalf("tick deadline %s, want about the 1m interval", d)
+	}
+}
+
+// A tick that returns just after its parent is cancelled races runTick's shutdown callback, which context.AfterFunc
+// starts on its own goroutine. goleak's retries hide one that outlives Run, so this checks the stacks the moment Run
+// returns: at the 3% the race was measured at, 200 trials miss it with probability 0.97^200, about 0.2%.
+func TestRunJoinsShutdownCallback(t *testing.T) {
+	const trials = 200
+	stacks := make([]byte, 1<<20)
+	for trial := range trials {
+		ctx, cancel := context.WithCancel(context.Background())
+		poll.NewLoop(time.Hour, time.Hour, func(context.Context) { cancel() }).Run(ctx)
+		n := runtime.Stack(stacks, true)
+		if strings.Contains(string(stacks[:n]), "poll.(*Loop).runTick") {
+			t.Fatalf("trial %d: a runTick goroutine outlived Run:\n%s", trial, stacks[:n])
+		}
 	}
 }
