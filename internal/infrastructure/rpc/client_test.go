@@ -3,6 +3,7 @@ package rpc_test
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -172,23 +173,53 @@ func TestClientStopsOnCancel(t *testing.T) {
 	}
 }
 
-func TestClientReportsAnAttemptTheCallerEndedAsAnError(t *testing.T) {
-	slow := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+// slowServer answers nothing until the client hangs up. Reading the body lets net/http notice the hang-up and cancel
+// the request's context, so the handler returns at once.
+func slowServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
 		select {
 		case <-r.Context().Done():
 		case <-time.After(5 * time.Second):
 		}
 	}))
-	defer slow.Close()
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestClientReportsAnAttemptTheCallerEndedAsAnError(t *testing.T) {
+	slow := slowServer(t)
 	observer := &recordingObserver{}
+	fees := newFeeSource(newClient(t, observer, slow.URL))
 	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 	defer cancel()
-	if _, err := newFeeSource(newClient(t, observer, slow.URL)).NodeTip(ctx); !errors.Is(err, context.DeadlineExceeded) {
+	if _, err := fees.NodeTip(ctx); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("err %v", err)
 	}
 	// The per-attempt timeout is 2 s, so the 50 ms deadline is the caller's, not the endpoint's.
 	if got := observer.outcomes(); len(got) != 1 || got[0].outcome != rpc.OutcomeError || !got[0].failed {
 		t.Fatalf("observations %+v; want one error, not a retryable attempt", got)
+	}
+}
+
+func TestClientRetriesAnAttemptItsOwnTimeoutEnded(t *testing.T) {
+	slow := slowServer(t)
+	cfg := testRPCConfig(slow.URL)
+	cfg.Timeout, cfg.MaxRetries = 20*time.Millisecond, 1
+	observer := &recordingObserver{}
+	c, err := rpc.NewClient(t.Context(), "test", cfg, observer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	if _, err := newFeeSource(c).NodeTip(t.Context()); err == nil {
+		t.Fatal("want an error once both attempts time out")
+	}
+	// The caller's context is live, so a slow endpoint is retried and, with a fallback, failed over.
+	got := observer.outcomes()
+	if len(got) != 2 || got[0].outcome != rpc.OutcomeRetryable || got[1].outcome != rpc.OutcomeRetryable {
+		t.Fatalf("observations %+v; want two retryable attempts", got)
 	}
 }
 
