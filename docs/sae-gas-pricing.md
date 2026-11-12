@@ -2,7 +2,7 @@
 
 Avalanche C-Chain runs Streaming Asynchronous Execution (SAE, [ACP-194][acp-194]), active on mainnet since the Helicon upgrade at 15:00 UTC on 22 September 2026 ([`upgrade.go`][helicon]). Its base fee no longer follows EIP-1559: it comes from a gas clock that every node replays from the last settled block. This document explains why SAE prices that way, how the clock works, the worst-case bound gasometer builds on it, what mainnet actually shows and what the RPC returns. Each claim is checked against mainnet.
 
-Code links and snippets are from [avalanchego v1.15.2](https://github.com/ava-labs/avalanchego/tree/v1.15.2/vms/saevm), under `vms/saevm/` unless the path says otherwise.
+Code links and snippets are from [avalanchego v1.15.2](https://github.com/ava-labs/avalanchego/tree/v1.15.2/vms/saevm), under `vms/saevm/` unless the path says otherwise. The pricing code they cite is unchanged in v1.15.3.
 
 ## Notation
 
@@ -143,6 +143,8 @@ func (p PriceExponent) Toward(desired *PriceExponent) PriceExponent {
 
 That moves $p_{\min}$ by at most $2^{1/3600} \approx 1.000193$ per block.
 
+Mainnet shows the cap at work. Validators moved the floor from 2.5 to 7.5 gwei between 23:40 UTC on 9 November and 05:14 on 10 November. It rose about 1.25 times an hour, against a maximum of $2^{3395/3600} \approx 1.92$ at that period's 3,395 blocks an hour, so tripling took 5.6 hours rather than the 1.7 the cap allows. Either side of the rise the floor alternates between two values exactly one step apart: 2,499,518,694 and 2,500,000,000 wei before, 7,498,556,082 and 7,500,000,000 after. That is what `toward` produces when successive builders hold different preferences: a builder whose desired exponent is below the current one steps it down by at most `maxDiff`, and the next builder at the median steps it back.
+
 When the target changes, [`AfterBlock`][after-block] rescales the excess so that $x/K$, and therefore the price, is unchanged, rounding up ([`scaleExcess`][scale-excess]). Changing the target changes capacity, not the price anyone pays at that moment:
 
 $$
@@ -235,7 +237,7 @@ When blocks are full the bound is met almost exactly: in the first week the fee 
 
 ## 6. What mainnet shows
 
-The clock decides the fee only when demand pushes it above the floor. On mainnet that has rarely happened since SAE's first days. The table samples 30 consecutive blocks a day, from two weeks before activation to 27 October, read from the public endpoint. The target $T$ was 4M gas/s throughout, carried over unchanged from [ACP-176][acp-176], so $R$ was 8M gas/s.
+The clock decides the fee only when demand pushes it above the floor. Since SAE's first days the floor sets most fees, and every day has short bursts above it: from 28 October, 6% to 23% of a day's blocks were priced more than 1% above the floor. The table's rows to 27 October sample 30 consecutive blocks a day, from two weeks before activation, read from the public endpoint. The rows from 28 October cover every block in gasometer's `blocks` table, which is missing 7,062 blocks on 3 November. The target $T$ was 4M gas/s throughout, carried over unchanged from [ACP-176][acp-176], so $R$ was 8M gas/s.
 
 | Period | $p_{\min}$ | Base fee | Mean gas/s |
 | --- | --- | --- | --- |
@@ -243,13 +245,16 @@ The clock decides the fee only when demand pushes it above the floor. On mainnet
 | 23 to 30 Sep | 1 wei, rising from 24 Sep to 5 gwei by 28 Sep | set by the clock until 26 Sep, peaking at 158.5 gwei; then at or just above the floor | 5.9M |
 | 1 to 18 Oct | 5 gwei | at or just above the floor | 1.6M |
 | 19 to 27 Oct | 2.5 gwei | at or just above the floor | 1.3M |
+| 28 Oct to 9 Nov 23:40 | 2.5 gwei | at the floor except 6% to 23% of blocks a day more than 1% above it, bursts peaking at 59.2 gwei on 29 Oct | 1.5M |
+| 9 Nov 23:40 to 10 Nov 05:14 UTC | 2.5 rising to 7.5 gwei | at or just above the floor as it rose | 1.2M |
+| 10 Nov 05:14 to 12 Nov 20:06 | 7.5 gwei | at the floor except 12% to 14% of blocks a day more than 1% above it, bursts peaking at 19.7 gwei | 1.4M |
 
 Before SAE, gas use averaged about the target while the fee stayed near 0.05 gwei. [ACP-283][acp-283] gives the reason: spam demand kept [ACP-176][acp-176]'s price discovery from pushing the price any lower, so the chain sat at its target at almost no cost. For the first three and a half days of SAE, demand exceeded $T$ and the clock, not the floor, set the fee: a sample every 1,000 blocks from activation found every block above the floor until 26 September. Bursts drove it from around 0.05 gwei to 13.5 gwei on 23 September and 158.5 gwei on 24 September. Once validators had voted the floor to 5 gwei, about 100 times the pre-SAE base fee, gas use fell by more than half. That is what [ACP-283][acp-283] set out to do. Routescan's [daily C-Chain charts](https://snowtrace.io/insight/chart?id=txnfees&metrics=ecosystem%3Aavalanche%3AFees%3A%23ef9b20%3Aday%3Alinear%3Aline%3Avisible%3Ay1%3Anone%3A%2Cchain%3A43114%3AFees%3A%2327aeef%3Aday%3Alinear%3Aline%3Avisible%3Ay1%3Anone%3Asymbol&zoom=1year) show the same step in gas used, from about 4M gas/s before to about 1M by mid-October.
 
 Over 300 blocks on 27 October the chain used 0.75M gas/s, 9.4% of $R$, and 270 of the 300 blocks paid exactly the floor. So the executor idles most of the time, and the base fee is the validators' floor vote rather than anything the clock computed. Two consequences for fee estimation:
 
 - **The tip barely decides inclusion.** Blocks are nowhere near full, so any tip the builder accepts gets in. This is the overpay gasometer measures.
-- **The clock and the bound in section 5 matter in bursts.** A burst of full blocks starts from the floor and raises the fee 12.2% a block. SAE's first days are the only sustained period so far in which the clock set the price, and section 8 replays them.
+- **The clock and the bound in section 5 matter in bursts.** A burst of full blocks starts from the floor and raises the fee 12.2% a block. SAE's first days are the only sustained period so far in which the clock set the price: since 28 October the longest run of blocks more than 1% above the floor is 2,438 blocks, 45 minutes on 30 October. Section 8 replays those first days.
 
 gasometer measures that overpay live, on its [public dashboard](https://ionsie.grafana.net/public-dashboards/f7aee50b6bb34f9e92f94ec700509cf8). Over the week of 4 to 11 November, a bid at the median tip on C-Chain overpaid by 51% to land within 30 seconds, while the node's suggestion and gasometer's own bid stayed within 0.5% of the cheapest bid that landed. The [first-week write-up](first-week.md) has the full results.
 
@@ -257,7 +262,7 @@ gasometer measures that overpay live, on its [public dashboard](https://ionsie.g
 
 *Share of each bid's fee paid above the cheapest bid that landed within 30 seconds, 2026-11-04 to 2026-11-11.*
 
-The table and the samples come from one-off scripts against the public endpoint, not from the tests in section 8; the peak fees do come from those tests.
+The table's rows to 27 October and the samples come from one-off scripts against the public endpoint, and the rows from 28 October from the service's `blocks` table, not from the tests in section 8; the 158.5 gwei peak does come from those tests.
 
 ## 7. What the RPC returns
 
@@ -334,6 +339,8 @@ The replay ran over recent blocks, where the floor sets the fee, and over three 
 The mutations show that both inputs matter, and how much the floor hides. Over recent blocks, dropping transaction gas limits breaks exactly the 2,610 base fees priced above the floor: removing gas can only lower the fee, and at the floor it cannot go lower. When the clock sets every fee it breaks 99.8% of them, and dropping atomic gas breaks 83% of the windows that contain atomic transactions.
 
 The two-request samples read the latest block $E$, then ask in one batch for block $E+1$ and `eth_feeHistory(1, E)`. A node runs a batch in order, and a block number above its last accepted one fails with "not accepted yet", so whether $E+1$ resolves says which branch `FeeHistory` took; in every sample the value was the one that branch serves. Through `api.avax.network` a client that reads the latest block and then `eth_feeHistory` gets the successor's header fee about one time in five. On a single node, execution trailing acceptance accounts for about one in two hundred.
+
+The live service runs the same replay on every poll: [`checkSAE`](../internal/gasometer/poll/collector.go) replays the head block's base fee from its settled block and compares it with the header. Over 10,080 C-Chain polls from 2026-11-04 15:00 to 2026-11-11 15:00 UTC, which include the 5.6 hours of the floor rise, it counted 0 mismatches (`gasometer_model_mismatch_total`, [first-week write-up](first-week.md) section 5).
 
 ## 9. What a wallet should do
 
