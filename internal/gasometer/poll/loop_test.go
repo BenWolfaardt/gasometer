@@ -2,7 +2,10 @@ package poll_test
 
 import (
 	"context"
+	"os"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -123,16 +126,44 @@ func TestLoopBoundsTickByInterval(t *testing.T) {
 
 // A tick that returns just after its parent is cancelled races runTick's shutdown callback, which context.AfterFunc
 // starts on its own goroutine. goleak's retries hide one that outlives Run, so this checks the stacks the moment Run
-// returns: at the 3% the race was measured at, 200 trials miss it with probability 0.97^200, about 0.2%.
+// returns. A callback parked on its closing line has signalled and is only returning, which no join can rule out; one
+// anywhere else has not finished, and Run returned without waiting for it.
 func TestRunJoinsShutdownCallback(t *testing.T) {
 	const trials = 200
+	done := callbackClosingLine(t)
+	frame := regexp.MustCompile(`poll\.\(\*Loop\)\.runTick\.func1\(\)\n\t[^\n]*/loop\.go:(\d+)`)
 	stacks := make([]byte, 1<<20)
 	for trial := range trials {
 		ctx, cancel := context.WithCancel(context.Background())
 		poll.NewLoop(time.Hour, time.Hour, func(context.Context) { cancel() }).Run(ctx)
 		n := runtime.Stack(stacks, true)
-		if strings.Contains(string(stacks[:n]), "poll.(*Loop).runTick") {
-			t.Fatalf("trial %d: a runTick goroutine outlived Run:\n%s", trial, stacks[:n])
+		for _, m := range frame.FindAllSubmatch(stacks[:n], -1) {
+			if line, _ := strconv.Atoi(string(m[1])); line != done {
+				t.Fatalf("trial %d: a shutdown callback at loop.go:%d, not its closing line %d, outlived Run:\n%s",
+					trial, line, done, stacks[:n])
+			}
 		}
 	}
+}
+
+// callbackClosingLine is the line of loop.go that closes the function passed to context.AfterFunc in runTick.
+func callbackClosingLine(t *testing.T) int {
+	t.Helper()
+	src, err := os.ReadFile("loop.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(src), "\n")
+	for i, l := range lines {
+		if !strings.Contains(l, "context.AfterFunc(parent, func() {") {
+			continue
+		}
+		for j := i + 1; j < len(lines); j++ {
+			if lines[j] == "\t})" {
+				return j + 1
+			}
+		}
+	}
+	t.Fatal("loop.go has no AfterFunc callback in runTick")
+	return 0
 }
