@@ -18,6 +18,7 @@ import (
 	"github.com/ava-labs/libevm/crypto"
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/rpc"
 )
 
@@ -234,4 +235,11 @@ func TestTxSenderInclusion(t *testing.T) {
 	if err != nil || inc == nil || inc.Block != 7 || inc.TimeMilliseconds != 1_793_042_612_209 {
 		t.Fatalf("inclusion %+v, %v", inc, err)
 	}
+}
+
+func TestTxSenderContract(t *testing.T) {
+	gasometertest.ProbeChain(t, func(t *testing.T) gasometer.ProbeChain {
+		_, sender := newChainServer(t)
+		return sender
+	})
 }

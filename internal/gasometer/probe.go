@@ -63,6 +63,13 @@ type Inclusion struct {
 }
 
 // ProbeChain sends transfers from accounts derived from one seed, numbered from 0, and reads their state.
+//
+// Guarantees: Address is pure. Inclusion is nil until the transaction has a receipt; a backend that lags the
+// receipt's block is retried, not reported.
+// Ordering: none.
+// Errors: ErrTxRejected from Send when the node refuses the transaction; a node that already holds it or its nonce
+// counts as sent. Others are the chain's.
+// Concurrency: safe for concurrent use.
 type ProbeChain interface {
 	Address(account int) string
 	// Nonces are the account's nonce after the latest block and including the node's pending transactions.

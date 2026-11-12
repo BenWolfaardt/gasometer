@@ -139,11 +139,6 @@ func (c *Collector) storeBlocks(ctx context.Context, from, head uint64, observed
 	if err != nil {
 		return gasometer.BlockFee{}, nil, fmt.Errorf("read fee history %d to %d: %w", from, head, err)
 	}
-	n := uint64(history.Len())
-	if n == 0 || history.OldestBlock < from || history.OldestBlock+n-1 != head {
-		return gasometer.BlockFee{}, nil, fmt.Errorf("%w: asked for %d to %d, got %d blocks from %d",
-			gasometer.ErrMalformedFeeHistory, from, head, n, history.OldestBlock)
-	}
 	blocks, missing, err := fee.BlockFees(history, observedAt)
 	if err != nil {
 		return gasometer.BlockFee{}, nil, fmt.Errorf("summarise fee history: %w", err)

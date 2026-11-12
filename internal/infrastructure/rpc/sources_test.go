@@ -2,6 +2,8 @@ package rpc_test
 
 import (
 	"math/big"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -9,6 +11,7 @@ import (
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
 	"github.com/BenWolfaardt/gasometer/internal/gasometer/fee"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/rpc"
 )
 
@@ -155,4 +158,29 @@ func TestEncodeReferenceTx(t *testing.T) {
 			t.Fatalf("erc20 calldata does not start with transfer: %x", tx.Data()[:4])
 		}
 	}
+}
+
+func TestOPStackL1FeeSourceReturnsNoMapOnError(t *testing.T) {
+	var calls atomic.Int32
+	srv := rpcServer(t, func(string) (any, string) {
+		if calls.Add(1) == 1 {
+			return "0x" + strings.Repeat("0", 63) + "1", ""
+		}
+		return nil, "execution reverted"
+	})
+	fees, err := rpc.NewL1FeeSource(newClient(t, &recordingObserver{}, srv.URL), 8453).L1Fees(t.Context(), refTxs)
+	if err == nil || fees != nil {
+		t.Fatalf("fees %v, err %v; want no map and the second transaction's error", fees, err)
+	}
+}
+
+func TestOPStackL1FeeSourceConcurrentCallers(t *testing.T) {
+	_, srv := newReplayServer(t, "base")
+	source := rpc.NewL1FeeSource(newClient(t, &recordingObserver{}, srv.URL), 8453)
+	gasometertest.Concurrently(t, 8, func(i int) {
+		fees, err := source.L1Fees(t.Context(), refTxs)
+		if err != nil || len(fees) != 2 || fees["native"] == nil || fees["erc20"] == nil {
+			t.Errorf("caller %d fees %v, err %v", i, fees, err)
+		}
+	})
 }

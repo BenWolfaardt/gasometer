@@ -14,6 +14,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/saevm/worstcase"
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/sae"
 )
 
@@ -243,6 +244,10 @@ func TestInvalidBlocks(t *testing.T) {
 			if _, err := sae.MaxBaseFeeAfter(tc.blocks, 1); !errors.Is(err, tc.want) {
 				t.Fatalf("MaxBaseFeeAfter: %v, want %v", err, tc.want)
 			}
+			// Ceiling cannot fail, so an invalid window's error comes from the ceiling's MaxBaseFeeAfter.
+			if _, err := (sae.Model{}).Ceiling(tc.blocks).MaxBaseFeeAfter(1); !errors.Is(err, tc.want) {
+				t.Fatalf("Model.Ceiling(...).MaxBaseFeeAfter: %v, want %v", err, tc.want)
+			}
 		})
 	}
 }
@@ -371,4 +376,62 @@ func TestMaxBaseFeeAfterBoundsRandomFutures(t *testing.T) {
 			t.Fatalf("block %d, k=%d: block n+1+k's base fee %s above the cap %s", w[len(w)-1].Number, k, realised, bound)
 		}
 	}
+}
+
+func TestModelCeilingContract(t *testing.T) {
+	f := loadFixture(t)
+	w, _ := window(f.Blocks, len(f.Blocks)-1)
+	var model gasometer.SAEModel = sae.Model{}
+	next, err := model.NextBaseFee(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ceiling := model.Ceiling(w)
+	prev := new(big.Int)
+	for k := range 31 {
+		got, err := ceiling.MaxBaseFeeAfter(k)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if k == 0 && got.Cmp(next) != 0 {
+			t.Fatalf("k=0: %s, next base fee %s", got, next)
+		}
+		if got.Cmp(prev) < 0 {
+			t.Fatalf("k=%d: %s below k=%d's %s", k, got, k-1, prev)
+		}
+		prev = got
+	}
+	if _, err := ceiling.MaxBaseFeeAfter(-1); !errors.Is(err, gasometer.ErrInvalidHorizon) {
+		t.Fatalf("k=-1: %v, want ErrInvalidHorizon", err)
+	}
+}
+
+func TestModelConcurrentCallers(t *testing.T) {
+	f := loadFixture(t)
+	w, _ := window(f.Blocks, len(f.Blocks)-1)
+	var model gasometer.SAEModel = sae.Model{}
+	base, err := model.BaseFee(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err := model.NextBaseFee(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ceiling := model.Ceiling(w)
+	after, err := ceiling.MaxBaseFeeAfter(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gasometertest.Concurrently(t, 8, func(i int) {
+		if got, err := model.BaseFee(w); err != nil || got.Cmp(base) != 0 {
+			t.Errorf("caller %d base fee %v, err %v", i, got, err)
+		}
+		if got, err := model.NextBaseFee(w); err != nil || got.Cmp(next) != 0 {
+			t.Errorf("caller %d next base fee %v, err %v", i, got, err)
+		}
+		if got, err := ceiling.MaxBaseFeeAfter(10); err != nil || got.Cmp(after) != 0 {
+			t.Errorf("caller %d ceiling %v, err %v", i, got, err)
+		}
+	})
 }

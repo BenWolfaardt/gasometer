@@ -1,6 +1,7 @@
 package prometheus_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -8,6 +9,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/prometheus"
 )
 
@@ -254,5 +256,36 @@ func TestSeriesBudget(t *testing.T) {
 	t.Logf("%d series at full label coverage", total)
 	if total > budget {
 		t.Fatalf("%d series exceeds the %d budget", total, budget)
+	}
+}
+
+func TestRecorderConcurrentCallers(t *testing.T) {
+	r, reg := newRecorder(t)
+	gasometertest.Concurrently(t, 8, func(i int) {
+		network := fmt.Sprintf("net-%d", i%2)
+		s := includedSettlement()
+		s.Network = network
+		r.Settled(s)
+		r.Snapshot(network, gasometer.FeeSnapshot{NextBaseFee: big.NewInt(1), NodeTip: big.NewInt(1)},
+			gasometer.BlockFee{BaseFee: big.NewInt(1), RequiredTip: big.NewInt(1)}, nil)
+		r.ModelMismatch(network)
+		r.BlocksBackfilled(network, 2)
+		r.BlocksLost(network, 3)
+		r.PollCompleted(network, time.Second, time.Unix(1_800_000_000, 0))
+		r.ObserveRPC(network, "eth_feeHistory", "example.org", "ok", time.Millisecond)
+	})
+	for name, want := range map[string]float64{
+		"gasometer_model_mismatch_total":    8,
+		"gasometer_blocks_backfilled_total": 16,
+		"gasometer_blocks_lost_total":       24,
+		"gasometer_rpc_requests_total":      8,
+	} {
+		var sum float64
+		for _, m := range family(t, reg, name).GetMetric() {
+			sum += m.GetCounter().GetValue()
+		}
+		if sum != want {
+			t.Errorf("%s summed %v across networks, want %v", name, sum, want)
+		}
 	}
 }

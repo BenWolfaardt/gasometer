@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/rpc"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/sae"
 )
@@ -270,4 +271,36 @@ func TestSAESourceBlockNotFound(t *testing.T) {
 	if _, err := rpc.NewSAESource(newClient(t, &recordingObserver{}, srv.URL)).SAEBlocks(t.Context(), 1); err == nil {
 		t.Fatal("no error for a missing block")
 	}
+}
+
+func TestSAESourceRejectsAHeadSettlingItselfOrLater(t *testing.T) {
+	for name, ahead := range map[string]uint64{"itself": 0, "a later block": 1} {
+		t.Run(name, func(t *testing.T) {
+			server, srv := newSAEServer(t)
+			head, _ := recordedWindow(t, server)
+			headHex := "0x" + strconv.FormatUint(head, 16)
+			server.edit = func(number string, block map[string]any) string {
+				if number == headHex {
+					block["settledHeight"] = "0x" + strconv.FormatUint(head+ahead, 16)
+				}
+				return ""
+			}
+			_, err := rpc.NewSAESource(newClient(t, &recordingObserver{}, srv.URL)).SAEBlocks(t.Context(), head)
+			if !errors.Is(err, gasometer.ErrInvalidSAEBlocks) {
+				t.Fatalf("got %v, want ErrInvalidSAEBlocks", err)
+			}
+		})
+	}
+}
+
+func TestSAESourceConcurrentCallers(t *testing.T) {
+	server, srv := newSAEServer(t)
+	head, settled := recordedWindow(t, server)
+	source := rpc.NewSAESource(newClient(t, &recordingObserver{}, srv.URL))
+	gasometertest.Concurrently(t, 8, func(i int) {
+		blocks, err := source.SAEBlocks(t.Context(), head)
+		if err != nil || len(blocks) != int(head-settled+1) || blocks[0].Number != settled || blocks[len(blocks)-1].Number != head {
+			t.Errorf("caller %d: %d blocks, err %v", i, len(blocks), err)
+		}
+	})
 }

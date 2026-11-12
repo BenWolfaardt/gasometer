@@ -1,4 +1,6 @@
-// Package mock holds hand-written, function-field mocks of every gasometer port.
+// Package mock holds hand-written mocks of every gasometer port. The function-field mocks of the sources and the model
+// are safe for concurrent use when their functions are. The stores, ProbeChain and MetricsRecorder are in-memory fakes
+// that guard their own state, held to their port's contract by the gasometertest suites.
 package mock
 
 import (

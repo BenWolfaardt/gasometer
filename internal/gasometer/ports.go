@@ -7,15 +7,29 @@ import (
 )
 
 // FeeSource reads one network's fee data.
+//
+// Guarantees: FeeHistory ends at to and starts at from, or later when the source no longer serves from, with
+// OldestBlock saying where; its BaseFees has Len()+1 entries and its Rewards Len() rows, a row nil where the source
+// sent none. HeadFee is the latest header, with its number and base fee set. NodeTip is the source's suggested tip.
+// Ordering: none.
+// Errors: ErrBeyondHistory from FeeHistory when the source no longer serves to; ErrMalformedFeeHistory when from is
+// after to or the source answers for another range. Others are the source's, including a header without a number or
+// base fee.
+// Concurrency: safe for concurrent use.
 type FeeSource interface {
-	// FeeHistory covers [from, to]. When the source cannot reach back to from, the history starts later and its
-	// OldestBlock says where; when it cannot reach to either, the error is ErrBeyondHistory.
+	// FeeHistory covers [from, to].
 	FeeHistory(ctx context.Context, from, to uint64, percentiles []float64) (FeeHistory, error)
 	HeadFee(ctx context.Context) (HeadFee, error)
 	NodeTip(ctx context.Context) (*big.Int, error)
 }
 
 // SAESource reads Avalanche SAE blocks.
+//
+// Guarantees: SAEBlocks returns the contiguous blocks from the one head settles through head; a head with no settled
+// fields comes back alone.
+// Ordering: ascending.
+// Errors: ErrInvalidSAEBlocks when head settles itself or a later block. Others are the source's.
+// Concurrency: safe for concurrent use.
 type SAESource interface {
 	// SAEBlocks returns the block head settles through head, ascending.
 	SAEBlocks(ctx context.Context, head uint64) ([]SAEBlock, error)
@@ -23,10 +37,15 @@ type SAESource interface {
 
 // SAEModel computes Avalanche SAE base fees over a block's window: its settled block through itself, ascending. It is
 // an interface because the computation runs avalanchego's gas clock, and the domain must not import avalanchego.
+//
+// Guarantees: BaseFee is the last block's own base fee; NextBaseFee is the upper bound on the next block's. Ceiling
+// never fails itself: an invalid window's error surfaces from MaxBaseFeeAfter.
+// Ordering: the window is ascending.
+// Errors: ErrInvalidSAEBlocks for an empty window, a head with no settled fields, a window not starting at the block
+// the head settles, or a head that settles itself; ErrBlockGap for blocks that are not contiguous.
+// Concurrency: safe for concurrent use.
 type SAEModel interface {
-	// BaseFee is the last block's own base fee.
 	BaseFee(blocks []SAEBlock) (*big.Int, error)
-	// NextBaseFee is the upper bound on the next block's base fee.
 	NextBaseFee(blocks []SAEBlock) (*big.Int, error)
 	Ceiling(blocks []SAEBlock) BaseFeeCeiling
 }
@@ -53,7 +72,12 @@ type BlockStore interface {
 	Holes(ctx context.Context, network string, above uint64) ([]BlockRange, error)
 }
 
-// L1FeeSource reads the L1 data fee of reference transactions, keyed by name.
+// L1FeeSource reads the L1 data fee of reference transactions.
+//
+// Guarantees: one entry per reference transaction, keyed by its name. On error the map is nil, never partial.
+// Ordering: none.
+// Errors: the source's only.
+// Concurrency: safe for concurrent use.
 type L1FeeSource interface {
 	L1Fees(ctx context.Context, txs []ReferenceTx) (map[string]*big.Int, error)
 }
@@ -70,6 +94,11 @@ type Settlement struct {
 }
 
 // MetricsRecorder exports what the use cases observe.
+//
+// Guarantees: it records only, and never fails.
+// Ordering: none.
+// Errors: none.
+// Concurrency: safe for concurrent use.
 type MetricsRecorder interface {
 	Settled(s Settlement)
 	// Snapshot records one poll's fees; price is nil when missing or stale.
@@ -109,6 +138,11 @@ type PredictionStore interface {
 }
 
 // PriceSource reads a network's coin price in USD.
+//
+// Guarantees: the quote's Answer is positive and its UpdatedAt set. Whether it is fresh enough is the caller's to judge.
+// Ordering: none.
+// Errors: the source's only, including an answer that is not positive.
+// Concurrency: safe for concurrent use.
 type PriceSource interface {
 	Price(ctx context.Context) (PriceQuote, error)
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/common/hexutil"
 
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/rpc"
 )
 
@@ -71,5 +72,19 @@ func TestChainlinkPriceSourceDecodesRound(t *testing.T) {
 	}
 	if q.USD() != 3_123.45 || q.UpdatedAt.Unix() != 1_800_000_000 {
 		t.Fatalf("quote %+v", q)
+	}
+}
+
+// The first callers all find the decimals cache empty; the lock makes one of them read it and the rest wait.
+func TestChainlinkPriceSourceConcurrentFirstCalls(t *testing.T) {
+	replay, srv := newReplayServer(t, "base")
+	prices := rpc.NewChainlinkPriceSource(newClient(t, &recordingObserver{}, srv.URL), "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70")
+	gasometertest.Concurrently(t, 8, func(i int) {
+		if q, err := prices.Price(t.Context()); err != nil || q.Decimals != 8 || q.Answer.Sign() <= 0 {
+			t.Errorf("caller %d quote %+v, err %v", i, q, err)
+		}
+	})
+	if got := replay.callCount("eth_call"); got != 1+8 {
+		t.Fatalf("%d eth_calls, want one decimals read and eight rounds", got)
 	}
 }

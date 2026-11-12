@@ -7,6 +7,7 @@ import (
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
 	"github.com/BenWolfaardt/gasometer/internal/gasometer/fee"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 )
 
 var (
@@ -132,6 +133,66 @@ func TestMaxBaseFeeAfterRejectsInvalidInput(t *testing.T) {
 	if _, err := fee.MaxBaseFeeAfter(baseParams, nil, 1); !errors.Is(err, gasometer.ErrInvalidFeeParams) {
 		t.Fatalf("nil fee: got %v", err)
 	}
+}
+
+func TestCeilingContract(t *testing.T) {
+	for name, c := range map[string]fee.Ceiling{
+		"base":                  {Params: baseParams, NextBaseFee: big.NewInt(10_000_000)},
+		"op":                    {Params: opParams, NextBaseFee: big.NewInt(1_000_000)},
+		"op at the 1 wei floor": {Params: opParams, NextBaseFee: big.NewInt(10)},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var ceiling gasometer.BaseFeeCeiling = c
+			prev := new(big.Int)
+			for k := range 101 {
+				got, err := ceiling.MaxBaseFeeAfter(k)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if k == 0 && got.Cmp(c.NextBaseFee) != 0 {
+					t.Fatalf("k=0: %s, next base fee %s", got, c.NextBaseFee)
+				}
+				if got.Cmp(prev) < 0 {
+					t.Fatalf("k=%d: %s below k=%d's %s", k, got, k-1, prev)
+				}
+				prev = got
+			}
+		})
+	}
+}
+
+func TestCeilingErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		ceiling fee.Ceiling
+		k       int
+		want    error
+	}{
+		{"negative k", fee.Ceiling{Params: baseParams, NextBaseFee: big.NewInt(1)}, -1, gasometer.ErrInvalidHorizon},
+		{"zero params", fee.Ceiling{NextBaseFee: big.NewInt(1)}, 1, gasometer.ErrInvalidFeeParams},
+		{"negative minimum", fee.Ceiling{Params: gasometer.FeeParams{Denominator: 8, Elasticity: 2, MinBaseFee: big.NewInt(-1)}, NextBaseFee: big.NewInt(1)}, 1, gasometer.ErrInvalidFeeParams},
+		{"no base fee", fee.Ceiling{Params: baseParams}, 1, gasometer.ErrInvalidFeeParams},
+		{"negative base fee", fee.Ceiling{Params: baseParams, NextBaseFee: big.NewInt(-1)}, 1, gasometer.ErrInvalidFeeParams},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := tc.ceiling.MaxBaseFeeAfter(tc.k); !errors.Is(err, tc.want) {
+				t.Fatalf("got %v, want %v", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestCeilingConcurrentCallers(t *testing.T) {
+	ceiling := fee.Ceiling{Params: baseParams, NextBaseFee: big.NewInt(10_000_000)}
+	want, err := ceiling.MaxBaseFeeAfter(50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gasometertest.Concurrently(t, 8, func(i int) {
+		if got, err := ceiling.MaxBaseFeeAfter(50); err != nil || got.Cmp(want) != 0 {
+			t.Errorf("caller %d: %v, err %v", i, got, err)
+		}
+	})
 }
 
 func BenchmarkNextBaseFee(b *testing.B) {

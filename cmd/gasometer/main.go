@@ -110,6 +110,8 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 	return err
 }
 
+var _ rpc.Observer = (*prometheus.Recorder)(nil)
+
 type stores struct {
 	blocks      *postgres.BlockStore
 	snapshots   *postgres.SnapshotStore

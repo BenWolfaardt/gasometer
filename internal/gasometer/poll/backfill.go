@@ -112,11 +112,6 @@ func (b *Backfiller) fill(ctx context.Context, hole gasometer.BlockRange) (int, 
 		if err != nil {
 			return stored, fmt.Errorf("read fee history %d to %d: %w", start, end, err)
 		}
-		n := uint64(history.Len())
-		if n == 0 || history.OldestBlock < start || history.OldestBlock+n-1 != end {
-			return stored, fmt.Errorf("%w: asked for %d to %d, got %d blocks from %d",
-				gasometer.ErrMalformedFeeHistory, start, end, n, history.OldestBlock)
-		}
 		if history.OldestBlock > start {
 			lost = &gasometer.BlockRange{From: hole.From, To: history.OldestBlock - 1}
 		}

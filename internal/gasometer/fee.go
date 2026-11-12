@@ -81,6 +81,12 @@ type FeeSnapshot struct {
 }
 
 // BaseFeeCeiling bounds the base fee across a horizon.
+//
+// Guarantees: MaxBaseFeeAfter(0) is the next block's base fee, and the bound never decreases as k grows.
+// Ordering: none.
+// Errors: ErrInvalidHorizon for k below 0; ErrInvalidFeeParams for EIP-1559 parameters or a base fee it cannot
+// compute from; the window errors of SAEModel for a ceiling over an SAE window.
+// Concurrency: safe for concurrent use.
 type BaseFeeCeiling interface {
 	// MaxBaseFeeAfter is the highest base fee reachable after k full blocks following the next one.
 	MaxBaseFeeAfter(k int) (*big.Int, error)

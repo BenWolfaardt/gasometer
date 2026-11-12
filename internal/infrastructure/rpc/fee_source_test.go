@@ -13,6 +13,7 @@ import (
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
 	"github.com/BenWolfaardt/gasometer/internal/gasometer/fee"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/rpc"
 )
 
@@ -204,4 +205,82 @@ func TestFeeSourceRejectsShiftedResponses(t *testing.T) {
 	if _, err := fees.FeeHistory(t.Context(), 1, 10, fee.RewardPercentiles(5)); !errors.Is(err, gasometer.ErrMalformedFeeHistory) {
 		t.Fatalf("got %v", err)
 	}
+}
+
+// rpcServer answers single JSON-RPC calls: result's first value is the result, or its second, when not empty, the
+// message of a -32000 error.
+func rpcServer(t *testing.T, result func(method string) (any, string)) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req jsonRPCRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		resp := map[string]any{"jsonrpc": "2.0", "id": req.ID}
+		if v, msg := result(req.Method); msg != "" {
+			resp["error"] = map[string]any{"code": -32000, "message": msg}
+		} else {
+			resp["result"] = v
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestFeeSourcePadsMissingRewards(t *testing.T) {
+	srv := rpcServer(t, func(method string) (any, string) {
+		if method == "eth_blockNumber" {
+			return "0xa", ""
+		}
+		return map[string]any{
+			"oldestBlock":   "0x8",
+			"baseFeePerGas": []string{"0x8", "0x9", "0xa", "0xb"},
+			"gasUsedRatio":  []float64{0.5, 0.5, 0.5},
+			"reward":        [][]string{{"0x1", "0x2"}},
+		}, ""
+	})
+	fees := rpc.NewFeeSource(newClient(t, &recordingObserver{}, srv.URL), rpc.FeeSourceLimits{HistoryDepth: 100, Batch: 1024})
+	h, err := fees.FeeHistory(t.Context(), 8, 10, fee.RewardPercentiles(5))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h.Len() != 3 || len(h.Rewards) != 3 || len(h.Rewards[0]) != 2 || h.Rewards[1] != nil || h.Rewards[2] != nil {
+		t.Fatalf("rewards %v for %d blocks", h.Rewards, h.Len())
+	}
+}
+
+func TestFeeSourceHeadFeeRequiresNumberAndBaseFee(t *testing.T) {
+	for name, header := range map[string]any{
+		"no header":   nil,
+		"no number":   map[string]string{"baseFeePerGas": "0x1", "gasUsed": "0x0", "gasLimit": "0x1"},
+		"no base fee": map[string]string{"number": "0x7", "gasUsed": "0x0", "gasLimit": "0x1"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := rpcServer(t, func(string) (any, string) { return header, "" })
+			if head, err := newFeeSource(newClient(t, &recordingObserver{}, srv.URL)).HeadFee(t.Context()); err == nil {
+				t.Fatalf("head %+v, want an error", head)
+			}
+		})
+	}
+}
+
+func TestFeeSourceConcurrentCallers(t *testing.T) {
+	_, srv := newReplayServer(t, "base")
+	fees := newFeeSource(newClient(t, &recordingObserver{}, srv.URL))
+	head, err := fees.HeadFee(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	gasometertest.Concurrently(t, 8, func(i int) {
+		if got, err := fees.HeadFee(t.Context()); err != nil || got.Number != head.Number {
+			t.Errorf("caller %d head %d, err %v", i, got.Number, err)
+		}
+		h, err := fees.FeeHistory(t.Context(), head.Number-3, head.Number, fee.RewardPercentiles(5))
+		if err != nil || h.OldestBlock != head.Number-3 || h.Len() != 4 || len(h.BaseFees) != 5 {
+			t.Errorf("caller %d history %+v, err %v", i, h, err)
+		}
+		if tip, err := fees.NodeTip(t.Context()); err != nil || tip == nil {
+			t.Errorf("caller %d tip %v, err %v", i, tip, err)
+		}
+	})
 }

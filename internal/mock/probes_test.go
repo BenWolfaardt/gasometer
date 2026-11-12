@@ -14,3 +14,7 @@ func TestProbeStoreContract(t *testing.T) {
 		return store, func() int { return len(store.Probes()) }
 	})
 }
+
+func TestProbeChainContract(t *testing.T) {
+	gasometertest.ProbeChain(t, func(*testing.T) gasometer.ProbeChain { return mock.NewProbeChain() })
+}

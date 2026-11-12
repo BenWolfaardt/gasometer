@@ -341,16 +341,6 @@ func TestCollectorFailures(t *testing.T) {
 		{"fee history", func(f *collectFixture) {
 			f.fees.FeeHistoryFn = func(uint64, uint64, []float64) (gasometer.FeeHistory, error) { return gasometer.FeeHistory{}, boom }
 		}, boom},
-		{"history not ending at head", func(f *collectFixture) {
-			f.fees.FeeHistoryFn = func(from, to uint64, _ []float64) (gasometer.FeeHistory, error) {
-				return syntheticHistory(from, to-1, modelNext), nil
-			}
-		}, gasometer.ErrMalformedFeeHistory},
-		{"history starting before the request", func(f *collectFixture) {
-			f.fees.FeeHistoryFn = func(from, to uint64, _ []float64) (gasometer.FeeHistory, error) {
-				return syntheticHistory(from-1, to, modelNext), nil
-			}
-		}, gasometer.ErrMalformedFeeHistory},
 		{"node tip", func(f *collectFixture) {
 			f.fees.NodeTipFn = func() (*big.Int, error) { return nil, boom }
 		}, boom},
