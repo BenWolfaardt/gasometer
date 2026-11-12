@@ -123,17 +123,18 @@ cp deploy/.env.example deploy/.env    # Postgres password and Grafana Cloud cred
 make compose-up
 ```
 
-This starts gasometer, Postgres and Grafana Alloy under Docker Compose or `podman compose`. Alloy pushes the metrics and the containers' logs to Grafana Cloud. Both carry `host="compose"`, and the dashboard and alerts select `host!="compose"`, so a local stack can share the production stack without showing on its dashboard or silencing its alerts.
+This starts gasometer, Postgres and Grafana Alloy under Docker Compose or `podman compose`. Alloy pushes the metrics and the containers' logs to Grafana Cloud. Both carry `host="compose"`, and the dashboard and alerts select `host!="compose"`, so a local stack never shows on the dashboard or silences an alert. A local stack's metrics still count against the stack's series limit, and two stacks together exceed Grafana Cloud Free's 10,000, so on the free tier leave the Prometheus values empty for a local run.
 
 | What | How |
 | --- | --- |
 | Dashboard | Import `deploy/grafana/gasometer.json` |
-| Alert | Fires after about 8 minutes without a poll. Install with `deploy/grafana/install-alert.sh` |
+| Logs | Grafana Cloud Loki, `{service_name="gasometer", host="gasometer"}`, and the dashboard's Logs panel. See [Logs](#logs) |
+| Alerts | `gasometer-stalled` fires after about 8 minutes without a poll; `gasometer-logs-absent` after about 15 minutes without a tick line in Loki. Install both with `deploy/grafana/install-alert.sh` |
 | Config | [configs/gasometer.yml](configs/gasometer.yml). Any key also takes a flag (`--poll-interval`) or env var (`GASOMETER_POLL_INTERVAL`) |
 | Endpoints | `/metrics`, `/healthz` and `/readyz` on port 9090 |
 | Storage | Blocks for 30 days, snapshots and predictions kept, about 10 MB a day |
 
-The alert script reads `GRAFANA_URL`, `GRAFANA_TOKEN` (a service account with the Admin role, which alert-rule provisioning requires) and `DATASOURCE_UID`.
+The alert script reads `GRAFANA_URL`, `GRAFANA_TOKEN` (a service account with the Admin role, which alert-rule provisioning requires), `DATASOURCE_UID` (Prometheus) and `LOKI_DATASOURCE_UID`.
 
 Without Compose, against your own Postgres (migrations run at startup):
 
@@ -142,6 +143,26 @@ make build
 GASOMETER_DATABASE_URL='postgres://user:pass@localhost:5432/gasometer?sslmode=disable' \
   ./bin/gasometer --config-file configs/gasometer.yml
 ```
+
+### Logs
+
+The service writes one JSON object per line to stderr through `log/slog`, at `info` by default (`log-level`).
+
+| Level | Means |
+| --- | --- |
+| Error | The code is wrong or cannot handle what the chain returned, or the service exited on an error |
+| Warn | Data was lost or degraded, or a check failed. Look if it repeats |
+| Info | What the service did: start, stop, one `tick` line per network per poll, one `pruned` line per hour, each retryable RPC attempt |
+| Debug | Detail an Info line already summarises, or expected skew that would flood at Info |
+
+Level and network are in the JSON body, not stream labels:
+
+```text
+{service_name="gasometer", host="gasometer"} | json | msg="tick"
+{service_name="gasometer", host="gasometer"} | json | level="WARN"
+```
+
+The dashboard's Logs panel is public. A transport error prints the full RPC URL, so RPC URLs must stay keyless while it is.
 
 ## Development
 

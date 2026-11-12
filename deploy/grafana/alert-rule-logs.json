@@ -1,0 +1,53 @@
+{
+  "uid": "gasometer-logs-absent",
+  "title": "gasometer tick lines missing from Loki",
+  "ruleGroup": "gasometer",
+  "folderUID": "gasometer",
+  "condition": "C",
+  "for": "5m",
+  "noDataState": "Alerting",
+  "execErrState": "Alerting",
+  "annotations": {
+    "summary": "No tick line from the VM has reached Loki for 15 minutes. If the stalled alert is quiet, the service is polling and the log path (Alloy, the journal ACL, the Loki token) is what broke."
+  },
+  "labels": {},
+  "data": [
+    {
+      "refId": "A",
+      "datasourceUid": "${LOKI_DATASOURCE_UID}",
+      "queryType": "instant",
+      "relativeTimeRange": {
+        "from": 600,
+        "to": 0
+      },
+      "model": {
+        "refId": "A",
+        "queryType": "instant",
+        "expr": "sum(count_over_time({service_name=\"gasometer\", host=\"gasometer\"} |= `\"msg\":\"tick\"` [10m]))"
+      }
+    },
+    {
+      "refId": "C",
+      "datasourceUid": "__expr__",
+      "relativeTimeRange": {
+        "from": 0,
+        "to": 0
+      },
+      "model": {
+        "refId": "C",
+        "type": "threshold",
+        "expression": "A",
+        "conditions": [
+          {
+            "evaluator": {
+              "type": "lt",
+              "params": [
+                1
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

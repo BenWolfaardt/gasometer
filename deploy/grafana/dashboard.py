@@ -4,6 +4,7 @@ import json
 import sys
 
 DS = {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}
+LOKI = {"type": "loki", "uid": "${DS_LOKI}"}
 NETWORKS = [("cchain", "Avalanche C-Chain"), ("base", "Base"), ("op", "Optimism")]
 SHOWN = [("market", "Market"), ("node", "Node"), ("gasometer", "gasometer")]
 HOST = 'host!="compose"'
@@ -187,11 +188,25 @@ add({"type": "state-timeline", "title": "", "datasource": DS, "interval": "3m",
                      "overrides": []},
      "options": {"showValue": "never", "mergeValues": True, "rowHeight": 0.8, "alignValue": "left",
                  "legend": {"showLegend": False}, "tooltip": {"mode": "single", "sort": "none"}}})
+y += 4
+
+row("Logs")
+# A shared dashboard runs only stored queries and takes no variables, so one stream at every level, newest first.
+add({"type": "logs", "title": "", "datasource": LOKI,
+     "description": "The service's own lines and systemd's for its unit. Info is what it did, Warn is data lost or "
+                    "degraded, Error is code that is wrong.",
+     "gridPos": {"x": 0, "y": y, "w": 24, "h": 14},
+     "targets": [{"datasource": LOKI, "refId": "A", "queryType": "range", "maxLines": 5000,
+                  "expr": '{service_name="gasometer", host="gasometer"}'}],
+     "options": {"showTime": True, "sortOrder": "Descending", "wrapLogMessage": True, "enableLogDetails": True,
+                 "prettifyLogMessage": False, "dedupStrategy": "none", "showLabels": False, "showCommonLabels": False}})
 
 dashboard = {
     "__inputs": [{"name": "DS_PROMETHEUS", "label": "Prometheus", "type": "datasource",
-                  "pluginId": "prometheus", "pluginName": "Prometheus"}],
-    "__requires": [{"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"}],
+                  "pluginId": "prometheus", "pluginName": "Prometheus"},
+                 {"name": "DS_LOKI", "label": "Loki", "type": "datasource", "pluginId": "loki", "pluginName": "Loki"}],
+    "__requires": [{"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"},
+                   {"type": "datasource", "id": "loki", "name": "Loki", "version": "1.0.0"}],
     "uid": "gasometer",
     "title": "gasometer",
     "description": "How much of an EVM transaction fee was unnecessary, measured live on Avalanche C-Chain, Base and Optimism.",
