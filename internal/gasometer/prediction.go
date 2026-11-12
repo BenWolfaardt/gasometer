@@ -60,6 +60,26 @@ func (p Prediction) Outcome() string {
 	}
 }
 
+// PredictionInput is what a predictor sees for one horizon.
+type PredictionInput struct {
+	Snapshot FeeSnapshot
+	History  []BlockFee // ascending, the growth window, ending at Snapshot.AtBlock
+	Horizon  Horizon
+	Ceiling  BaseFeeCeiling // nil when no model applies
+}
+
+// Predictor proposes a bid for a horizon. It is a domain interface, not a port: every implementation runs in process.
+//
+// Guarantees: a bid with its tip, max fee and expected base fee all set.
+// Ordering: in.History is ascending and ends at in.Snapshot.AtBlock.
+// Errors: ErrInvalidBid when the snapshot lacks the next base fee or node tip the predictor needs;
+// ErrInsufficientHistory when the history is too short for it; a projector's error, wrapped.
+// Concurrency: safe for concurrent use.
+type Predictor interface {
+	Name() string
+	Predict(in PredictionInput) (Bid, error)
+}
+
 // Bid is a predictor's fee, per gas in wei.
 type Bid struct {
 	Tip             *big.Int

@@ -98,9 +98,12 @@ type Gasometer struct {
 	projector   BaseFeeProjector
 }
 
-// NewGasometer builds the gasometer predictor.
-func NewGasometer(tipQuantile float64, tipWindow int, projector BaseFeeProjector) *Gasometer {
-	return &Gasometer{tipQuantile: tipQuantile, tipWindow: tipWindow, projector: projector}
+// NewGasometer builds the gasometer predictor. tipWindow must be at least 1.
+func NewGasometer(tipQuantile float64, tipWindow int, projector BaseFeeProjector) (*Gasometer, error) {
+	if tipWindow < 1 {
+		return nil, fmt.Errorf("gasometer predictor: tip window %d is below 1", tipWindow)
+	}
+	return &Gasometer{tipQuantile: tipQuantile, tipWindow: tipWindow, projector: projector}, nil
 }
 
 // Name is the predictor label.
@@ -110,9 +113,6 @@ func (p *Gasometer) Name() string { return "gasometer" }
 func (p *Gasometer) Predict(in gasometer.PredictionInput) (gasometer.Bid, error) {
 	if in.Snapshot.NextBaseFee == nil {
 		return gasometer.Bid{}, gasometer.ErrInvalidBid
-	}
-	if p.tipWindow < 1 {
-		return gasometer.Bid{}, fmt.Errorf("%w: tip window %d", gasometer.ErrInvalidConfig, p.tipWindow)
 	}
 	span := max(1, in.Horizon.Blocks)
 	need := p.tipWindow + span - 1

@@ -190,7 +190,7 @@ func TestValidation(t *testing.T) {
 			}
 			args := append([]string{"--" + configFileKey, writeConfig(t, yaml), "--database-url", "postgres://x"}, tt.args...)
 			_, err := load(t, args...)
-			if !errors.Is(err, tt.want) || !errors.Is(err, gasometer.ErrInvalidConfig) {
+			if !errors.Is(err, tt.want) || !errors.Is(err, errInvalidConfig) {
 				t.Fatalf("got %v, want %v", err, tt.want)
 			}
 		})

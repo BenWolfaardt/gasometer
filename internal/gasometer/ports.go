@@ -146,17 +146,3 @@ type PredictionStore interface {
 type PriceSource interface {
 	Price(ctx context.Context) (PriceQuote, error)
 }
-
-// PredictionInput is what a predictor sees for one horizon.
-type PredictionInput struct {
-	Snapshot FeeSnapshot
-	History  []BlockFee // ascending, the growth window, ending at Snapshot.AtBlock
-	Horizon  Horizon
-	Ceiling  BaseFeeCeiling // nil when no model applies
-}
-
-// Predictor proposes a bid for a horizon.
-type Predictor interface {
-	Name() string
-	Predict(in PredictionInput) (Bid, error)
-}

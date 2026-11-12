@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -298,8 +299,11 @@ var (
 	errDecodeList             = invalid("decode config list")
 )
 
+// errInvalidConfig is wrapped by every config error, so a caller can tell a bad config from a failure to start.
+var errInvalidConfig = errors.New("invalid config")
+
 func invalid(msg string) error {
-	return fmt.Errorf("%w: %s", gasometer.ErrInvalidConfig, msg)
+	return fmt.Errorf("%w: %s", errInvalidConfig, msg)
 }
 
 // getConfig reads and validates every section of v.

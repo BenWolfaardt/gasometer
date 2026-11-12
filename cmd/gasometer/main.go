@@ -194,9 +194,13 @@ func buildPredictors(cfg fileConfig) ([]gasometer.Predictor, error) {
 		case "market":
 			out = append(out, predict.NewMarket())
 		case "gasometer":
-			out = append(out, predict.NewGasometer(cfg.Gasometer.TipQuantile, cfg.Gasometer.TipWindow, projector))
+			p, err := predict.NewGasometer(cfg.Gasometer.TipQuantile, cfg.Gasometer.TipWindow, projector)
+			if err != nil {
+				return nil, fmt.Errorf("%w: %w", errInvalidConfig, err)
+			}
+			out = append(out, p)
 		default:
-			return nil, fmt.Errorf("%w: unknown predictor %q", gasometer.ErrInvalidConfig, name)
+			return nil, fmt.Errorf("%w: unknown predictor %q", errInvalidConfig, name)
 		}
 	}
 	return out, nil

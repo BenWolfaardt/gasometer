@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 	"github.com/BenWolfaardt/gasometer/internal/gasometer/predict"
 )
 
@@ -120,5 +121,30 @@ func TestWorstCaseProjectorPropagatesErrors(t *testing.T) {
 	})
 	if !errors.Is(err, gasometer.ErrInsufficientHistory) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestProjectorsConcurrentCallers(t *testing.T) {
+	in := predict.ProjectionInput{
+		NextBaseFee: wei(10_000_000), History: blocks(1, []int64{100, 110, 121, 100, 100, 100}, repeat(0, 6)),
+		Blocks: 3, Ceiling: baseCeiling,
+	}
+	empirical := predict.NewEmpiricalProjector(0.99)
+	for name, p := range map[string]predict.BaseFeeProjector{
+		"empirical":  empirical,
+		"worst case": predict.NewWorstCaseProjector(empirical),
+	} {
+		t.Run(name, func(t *testing.T) {
+			want, err := p.Project(in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gasometertest.Concurrently(t, 8, func(i int) {
+				got, err := p.Project(in)
+				if err != nil || got.Expected.Cmp(want.Expected) != 0 || got.Upper.Cmp(want.Upper) != 0 {
+					t.Errorf("caller %d: %+v, err %v, want %+v", i, got, err, want)
+				}
+			})
+		})
 	}
 }

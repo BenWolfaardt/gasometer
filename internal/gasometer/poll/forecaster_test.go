@@ -47,7 +47,7 @@ func TestForecaster(t *testing.T) {
 	blocks.AvgTime["base"] = 2 * time.Second
 	storeBlocks(t, blocks, 1, 5_000)
 	predictions := &mock.PredictionStore{}
-	recorded := &recordingPredictor{Predictor: predict.NewGasometer(0.9, 30, predict.NewEmpiricalProjector(0.99))}
+	recorded := &recordingPredictor{Predictor: mustGasometer(t, 0.9, 30, predict.NewEmpiricalProjector(0.99))}
 	uc := poll.NewForecaster("base", []int{2, 30, 120}, gasometerParams, poll.ForecasterDeps{
 		Predictors:  []gasometer.Predictor{predict.NewNode(), predict.NewWallet(), recorded},
 		Blocks:      blocks,
@@ -81,7 +81,7 @@ func TestForecasterLoadsTipWindowsOfLongestHorizon(t *testing.T) {
 	storeBlocks(t, blocks, 1, 5_000)
 	params := gasometerParams
 	params.TipWindow = 1_800
-	recorded := &recordingPredictor{Predictor: predict.NewGasometer(0.99, 1_800, predict.NewEmpiricalProjector(0.99))}
+	recorded := &recordingPredictor{Predictor: mustGasometer(t, 0.99, 1_800, predict.NewEmpiricalProjector(0.99))}
 	uc := poll.NewForecaster("base", []int{2, 30, 120}, params, poll.ForecasterDeps{
 		Predictors:  []gasometer.Predictor{recorded},
 		Blocks:      blocks,
@@ -115,7 +115,7 @@ func TestForecasterSkipsPredictorsWithoutHistory(t *testing.T) {
 	predictions := &mock.PredictionStore{}
 	n, err := poll.NewForecaster("base", []int{30}, gasometerParams, poll.ForecasterDeps{
 		Predictors: []gasometer.Predictor{
-			predict.NewGasometer(0.9, 30, predict.NewEmpiricalProjector(0.99)), predict.NewNode(),
+			mustGasometer(t, 0.9, 30, predict.NewEmpiricalProjector(0.99)), predict.NewNode(),
 		},
 		Blocks: blocks, Predictions: predictions, Log: nopLog,
 	}).Forecast(t.Context(), observation(5_000))
@@ -142,7 +142,7 @@ func TestForecasterPredictsOnTheRunEndingAtHead(t *testing.T) {
 			for _, r := range tt.stored {
 				storeBlocks(t, blocks, r[0], r[1])
 			}
-			recorded := &recordingPredictor{Predictor: predict.NewGasometer(0.9, 30, predict.NewEmpiricalProjector(0.99))}
+			recorded := &recordingPredictor{Predictor: mustGasometer(t, 0.9, 30, predict.NewEmpiricalProjector(0.99))}
 			predictions := &mock.PredictionStore{}
 			_, err := poll.NewForecaster("base", []int{2}, gasometerParams, poll.ForecasterDeps{
 				Predictors: []gasometer.Predictor{recorded, predict.NewNode()}, Blocks: blocks, Predictions: predictions, Log: nopLog,

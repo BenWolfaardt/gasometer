@@ -22,8 +22,6 @@ var (
 	// ErrInvalidBid is returned by a Predictor whose snapshot lacks the next base fee or node tip it needs, and by
 	// score.Bid for a bid missing a field.
 	ErrInvalidBid = errors.New("invalid bid")
-	// ErrInvalidConfig is returned by each command's config loader, and by predict.Gasometer for a tip window below 1.
-	ErrInvalidConfig = errors.New("invalid config")
 	// ErrMalformedFeeHistory is returned by FeeSource.FeeHistory for a range with from after to or an answer covering
 	// another range, and by fee.BlockFees for a history whose base fees do not number one more than its blocks.
 	ErrMalformedFeeHistory = errors.New("malformed fee history")

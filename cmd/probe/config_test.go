@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-
-	"github.com/BenWolfaardt/gasometer/internal/gasometer"
 )
 
 var testSeedHex = strings.Repeat("ab", 32)
@@ -67,8 +65,8 @@ func TestParseConfigRejects(t *testing.T) {
 		{"bad log level", []string{"fund", "--log-level", "loud"}, testSeedHex},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := parseConfig(tc.args, env(tc.seed), io.Discard); !errors.Is(err, gasometer.ErrInvalidConfig) {
-				t.Fatalf("err %v, want ErrInvalidConfig", err)
+			if _, err := parseConfig(tc.args, env(tc.seed), io.Discard); !errors.Is(err, errInvalidConfig) {
+				t.Fatalf("err %v, want errInvalidConfig", err)
 			}
 		})
 	}

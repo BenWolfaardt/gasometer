@@ -3,10 +3,12 @@ package poll_test
 import (
 	"log/slog"
 	"math/big"
+	"testing"
 	"time"
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
 	"github.com/BenWolfaardt/gasometer/internal/gasometer/poll"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/predict"
 	"github.com/BenWolfaardt/gasometer/internal/mock"
 )
 
@@ -20,6 +22,15 @@ var (
 )
 
 func clock(at time.Time) func() time.Time { return func() time.Time { return at } }
+
+func mustGasometer(t *testing.T, tipQuantile float64, tipWindow int, projector predict.BaseFeeProjector) *predict.Gasometer {
+	t.Helper()
+	p, err := predict.NewGasometer(tipQuantile, tipWindow, projector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
 
 // feeSource serves a network at head whose blocks all have base fee 10,000,000 and rewards {1, 5}, and whose next
 // base fee is next. It returns every block asked for.

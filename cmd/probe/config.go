@@ -12,13 +12,15 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/BenWolfaardt/gasometer/internal/gasometer"
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/rpc"
 )
 
 // seedEnv names the variable holding the probe seed, hex encoded; it is read from the environment only, so it never
 // reaches a shell history or a config file.
 const seedEnv = "GASOMETER_PROBE_SEED"
+
+// errInvalidConfig is wrapped by every config error, so a caller can tell a bad invocation from a failure to run.
+var errInvalidConfig = errors.New("invalid config")
 
 const (
 	commandFund  = "fund"
@@ -125,7 +127,7 @@ func parseConfig(args []string, getenv func(string) string, stderr io.Writer) (c
 	}
 	cfg.seed = seed
 	if err := errors.Join(errs...); err != nil {
-		return config{}, fmt.Errorf("%w: %w", gasometer.ErrInvalidConfig, err)
+		return config{}, fmt.Errorf("%w: %w", errInvalidConfig, err)
 	}
 	return cfg, nil
 }

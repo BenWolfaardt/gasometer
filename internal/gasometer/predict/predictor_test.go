@@ -5,8 +5,18 @@ import (
 	"testing"
 
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
+	"github.com/BenWolfaardt/gasometer/internal/gasometer/gasometertest"
 	"github.com/BenWolfaardt/gasometer/internal/gasometer/predict"
 )
+
+func newGasometer(t *testing.T, tipQuantile float64, tipWindow int, projector predict.BaseFeeProjector) *predict.Gasometer {
+	t.Helper()
+	p, err := predict.NewGasometer(tipQuantile, tipWindow, projector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
 
 func snapshot(next, nodeTip int64) gasometer.FeeSnapshot {
 	return gasometer.FeeSnapshot{NextBaseFee: wei(next), NodeTip: wei(nodeTip)}
@@ -33,8 +43,14 @@ func TestBaselinePredictors(t *testing.T) {
 			if !eqWei(bid.Tip, 7) || !eqWei(bid.MaxFee, tt.maxFee) || !eqWei(bid.ExpectedBaseFee, 1_000) {
 				t.Fatalf("got %+v", bid)
 			}
-			if _, err := tt.predictor.Predict(gasometer.PredictionInput{}); !errors.Is(err, gasometer.ErrInvalidBid) {
-				t.Fatalf("empty snapshot: %v", err)
+			for name, snap := range map[string]gasometer.FeeSnapshot{
+				"empty snapshot":   {},
+				"no node tip":      {NextBaseFee: wei(1_000)},
+				"no next base fee": {NodeTip: wei(7)},
+			} {
+				if _, err := tt.predictor.Predict(gasometer.PredictionInput{Snapshot: snap}); !errors.Is(err, gasometer.ErrInvalidBid) {
+					t.Fatalf("%s: %v", name, err)
+				}
 			}
 		})
 	}
@@ -90,7 +106,7 @@ func TestGasometerPredictor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			projector := &fixedProjector{proj: predict.BaseFeeProjection{Expected: wei(1_050), Upper: wei(1_200)}}
-			p := predict.NewGasometer(0.9, 10, projector)
+			p := newGasometer(t, 0.9, 10, projector)
 			if p.Name() != "gasometer" {
 				t.Fatalf("name %q", p.Name())
 			}
@@ -123,16 +139,14 @@ func TestGasometerPredictorErrors(t *testing.T) {
 		in        gasometer.PredictionInput
 		want      error
 	}{
-		{"short history", predict.NewGasometer(0.9, 6, ok),
+		{"short history", newGasometer(t, 0.9, 6, ok),
 			gasometer.PredictionInput{Snapshot: snapshot(1, 1), History: history}, gasometer.ErrInsufficientHistory},
-		{"short history for the horizon", predict.NewGasometer(0.9, 4, ok),
+		{"short history for the horizon", newGasometer(t, 0.9, 4, ok),
 			gasometer.PredictionInput{Snapshot: snapshot(1, 1), History: history, Horizon: gasometer.Horizon{Blocks: 3}},
 			gasometer.ErrInsufficientHistory},
-		{"zero tip window", predict.NewGasometer(0.9, 0, ok),
-			gasometer.PredictionInput{Snapshot: snapshot(1, 1), History: history}, gasometer.ErrInvalidConfig},
-		{"missing next base fee", predict.NewGasometer(0.9, 5, ok),
+		{"missing next base fee", newGasometer(t, 0.9, 5, ok),
 			gasometer.PredictionInput{History: history}, gasometer.ErrInvalidBid},
-		{"projector error", predict.NewGasometer(0.9, 5, &fixedProjector{err: gasometer.ErrInsufficientHistory}),
+		{"projector error", newGasometer(t, 0.9, 5, &fixedProjector{err: gasometer.ErrInsufficientHistory}),
 			gasometer.PredictionInput{Snapshot: snapshot(1, 1), History: history}, gasometer.ErrInsufficientHistory},
 	}
 	for _, tt := range tests {
@@ -140,6 +154,44 @@ func TestGasometerPredictorErrors(t *testing.T) {
 			if _, err := tt.predictor.Predict(tt.in); !errors.Is(err, tt.want) {
 				t.Fatalf("got %v, want %v", err, tt.want)
 			}
+		})
+	}
+}
+
+func TestNewGasometerRejectsATipWindowBelowOne(t *testing.T) {
+	projector := predict.NewEmpiricalProjector(0.99)
+	for _, window := range []int{0, -1} {
+		if p, err := predict.NewGasometer(0.9, window, projector); err == nil || p != nil {
+			t.Fatalf("tip window %d: predictor %v, err %v", window, p, err)
+		}
+	}
+	if _, err := predict.NewGasometer(0.9, 1, projector); err != nil {
+		t.Fatalf("tip window 1: %v", err)
+	}
+}
+
+func TestPredictorsConcurrentCallers(t *testing.T) {
+	history := blocks(1, repeat(10_000_000, 40), repeat(3, 40))
+	in := gasometer.PredictionInput{
+		Snapshot: snapshot(10_000_000, 7), History: history,
+		Horizon: gasometer.Horizon{Seconds: 6, Blocks: 3}, Ceiling: baseCeiling,
+	}
+	projector := predict.NewWorstCaseProjector(predict.NewEmpiricalProjector(0.99))
+	for _, p := range []gasometer.Predictor{
+		predict.NewNode(), predict.NewWallet(), predict.NewMarket(), newGasometer(t, 0.9, 10, projector),
+	} {
+		t.Run(p.Name(), func(t *testing.T) {
+			want, err := p.Predict(in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gasometertest.Concurrently(t, 8, func(i int) {
+				got, err := p.Predict(in)
+				if err != nil || got.Tip.Cmp(want.Tip) != 0 || got.MaxFee.Cmp(want.MaxFee) != 0 ||
+					got.ExpectedBaseFee.Cmp(want.ExpectedBaseFee) != 0 {
+					t.Errorf("caller %d: %+v, err %v, want %+v", i, got, err, want)
+				}
+			})
 		})
 	}
 }
