@@ -197,7 +197,9 @@ add({"type": "logs", "title": "", "datasource": LOKI,
                     "degraded, Error is code that is wrong.",
      "gridPos": {"x": 0, "y": y, "w": 24, "h": 14},
      "targets": [{"datasource": LOKI, "refId": "A", "queryType": "range", "maxLines": 5000,
-                  "expr": '{service_name="gasometer", host="gasometer"}'}],
+                  # json gives each line its fields in the details view; drop keeps the error labels that the
+                  # stream's plain-text systemd and fatal-exit lines would get off them, without dropping the lines.
+                  "expr": '{service_name="gasometer", host="gasometer"} | json | drop __error__, __error_details__'}],
      "options": {"showTime": True, "sortOrder": "Descending", "wrapLogMessage": True, "enableLogDetails": True,
                  "prettifyLogMessage": False, "dedupStrategy": "none", "showLabels": False, "showCommonLabels": False}})
 

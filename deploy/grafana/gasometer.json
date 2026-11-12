@@ -1876,7 +1876,7 @@
           "refId": "A",
           "queryType": "range",
           "maxLines": 5000,
-          "expr": "{service_name=\"gasometer\", host=\"gasometer\"}"
+          "expr": "{service_name=\"gasometer\", host=\"gasometer\"} | json | drop __error__, __error_details__"
         }
       ],
       "options": {
