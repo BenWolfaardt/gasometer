@@ -43,7 +43,7 @@ type Prediction struct {
 	Score      *Score // set once resolved
 }
 
-// Outcome is the metric label of a settled prediction.
+// Outcome is how a settled prediction ended: included, missed, expired or unresolvable. It is empty while pending.
 func (p Prediction) Outcome() string {
 	switch p.Status {
 	case PredictionResolved:

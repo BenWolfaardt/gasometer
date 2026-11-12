@@ -154,7 +154,8 @@ func (c *Campaign) probe(ctx context.Context, account int, tip, baseFee, nodeTip
 }
 
 // wait polls for a receipt of any of hashes until the timeout, returning the index of the one included, or a nil
-// inclusion when none was. A failed lookup is retried: behind a load balancer a receipt can be missing on one backend.
+// inclusion when none was. A failed lookup counts as not seen yet and is tried again until the timeout, because a
+// probe's outcome is whether it was included within Timeout.
 func (c *Campaign) wait(parent context.Context, hashes ...string) (int, *gasometer.Inclusion, error) {
 	ctx, cancel := context.WithTimeout(parent, c.params.Timeout)
 	defer cancel()

@@ -1,5 +1,8 @@
 // Package poll runs each network's poll: collect its fees, forecast with every predictor, settle what has resolved, and
 // prune old blocks, on a loop that lets in-flight work finish at shutdown.
+//
+// It is the orchestrator. It imports fee and score, which are pure functions, reaches every dependency through a port,
+// and receives its predictors as gasometer.Predictor values.
 package poll
 
 import (

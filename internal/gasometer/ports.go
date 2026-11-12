@@ -21,7 +21,8 @@ type SAESource interface {
 	SAEBlocks(ctx context.Context, head uint64) ([]SAEBlock, error)
 }
 
-// SAEModel computes Avalanche SAE base fees over a block's window: its settled block through itself, ascending.
+// SAEModel computes Avalanche SAE base fees over a block's window: its settled block through itself, ascending. It is
+// an interface because the computation runs avalanchego's gas clock, and the domain must not import avalanchego.
 type SAEModel interface {
 	// BaseFee is the last block's own base fee.
 	BaseFee(blocks []SAEBlock) (*big.Int, error)

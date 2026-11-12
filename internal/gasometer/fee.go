@@ -12,7 +12,7 @@ type FeeParams struct {
 	MinBaseFee  *big.Int // nil when the network has no minimum
 }
 
-// FeeHistory is one eth_feeHistory response.
+// FeeHistory is the fees of a contiguous run of blocks starting at OldestBlock, with the base fee of the block after.
 type FeeHistory struct {
 	OldestBlock   uint64
 	BaseFees      []*big.Int // one per block, plus the block after the newest
@@ -40,7 +40,7 @@ type HeadFee struct {
 	GasUsed     uint64
 	BlobGasUsed uint64 // DA footprint under Jovian
 	GasLimit    uint64
-	ExtraData   []byte
+	ExtraData   []byte // the header's extra data; on OP Stack it carries the EIP-1559 params for the next block
 }
 
 // GasMetered is the gas the base fee update reads: max(gasUsed, blobGasUsed).

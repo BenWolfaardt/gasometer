@@ -1,4 +1,4 @@
-// Package http serves /metrics, /healthz and /readyz. It is the only package that imports net/http.
+// Package http serves /metrics, /healthz and /readyz. It is the only package that serves HTTP.
 package http
 
 import (
