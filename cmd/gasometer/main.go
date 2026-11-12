@@ -105,9 +105,12 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 		})
 	}
 	g.Go(func() error { return server.Serve(gctx, listener) })
-	err = g.Wait()
-	log.Info("gasometer stopped", "err", err)
-	return err
+	if err := g.Wait(); err != nil {
+		log.Error("gasometer stopped", "err", err)
+		return err
+	}
+	log.Info("gasometer stopped")
+	return nil
 }
 
 var _ rpc.Observer = (*prometheus.Recorder)(nil)

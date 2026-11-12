@@ -3,6 +3,7 @@ package poll_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strings"
@@ -16,7 +17,7 @@ import (
 )
 
 // pollFixture wires a real collector, forecaster, settler and backfiller onto mocked ports.
-func pollFixture(fees *mock.FeeSource, blocks *mock.BlockStore) (poll.Tick, *mock.MetricsRecorder, *mock.SnapshotStore) {
+func pollFixture(fees *mock.FeeSource, blocks *mock.BlockStore, now func() time.Time, log *slog.Logger) (poll.Tick, *mock.MetricsRecorder, *mock.SnapshotStore) {
 	snapshots, predictions, rec := mock.NewSnapshotStore(), &mock.PredictionStore{}, mock.NewMetricsRecorder()
 	collector := poll.NewCollector(baseNet, collectorParams, refTxs, poll.CollectorDeps{
 		Fees: fees, Blocks: blocks, Snapshots: snapshots, Metrics: rec, Now: clock(t0), Log: nopLog,
@@ -32,16 +33,54 @@ func pollFixture(fees *mock.FeeSource, blocks *mock.BlockStore) (poll.Tick, *moc
 			Covered: backfiller.Covered, Now: clock(t0), Log: nopLog})
 	tick := poll.NewTick("base", poll.TickDeps{
 		Collector: collector, Forecaster: forecaster, Settler: settler, Backfiller: backfiller,
-		Metrics: rec, Now: time.Now, Log: nopLog,
+		Metrics: rec, Now: now, Log: log,
 	})
 	return tick, rec, snapshots
 }
 
 func TestPollTick(t *testing.T) {
-	tick, rec, snapshots := pollFixture(feeSource(5_000, 10_000_000), mock.NewBlockStore())
+	tick, rec, snapshots := pollFixture(feeSource(5_000, 10_000_000), mock.NewBlockStore(), time.Now, nopLog)
 	tick(context.Background())
 	if rec.PollCount("base") != 1 || len(snapshots.Snapshots) != 1 {
 		t.Fatalf("polls %d, snapshots %d", rec.PollCount("base"), len(snapshots.Snapshots))
+	}
+}
+
+// steppingClock advances by step on every call, so a duration is the count of calls between two reads.
+func steppingClock(step time.Duration) func() time.Time {
+	at := t0
+	return func() time.Time {
+		at = at.Add(step)
+		return at
+	}
+}
+
+func TestPollTickLogsOneInfoLineWithTheWholeTicksDuration(t *testing.T) {
+	var logged bytes.Buffer
+	log := slog.New(slog.NewJSONHandler(&logged, nil))
+	// The tick reads the clock at start, at the poll metric and after the backfill: 3,000 ms in all.
+	tick, _, _ := pollFixture(feeSource(5_000, 10_000_000), mock.NewBlockStore(), steppingClock(1500*time.Millisecond), log)
+	tick(context.Background())
+	lines := strings.Split(strings.TrimSpace(logged.String()), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("logged %d lines, want the tick line only: %q", len(lines), logged.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &got); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{
+		"level": "INFO", "msg": "tick", "network": "base", "block": float64(5_000), "duration_ms": float64(3_000),
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s = %v, want %v", k, got[k], v)
+		}
+	}
+	for _, k := range []string{"predictions", "settled", "backfilled"} {
+		if _, ok := got[k].(float64); !ok {
+			t.Errorf("%s = %v, want a count", k, got[k])
+		}
 	}
 }
 
@@ -50,7 +89,7 @@ func TestPollTickBackfillsAfterTheLiveChunk(t *testing.T) {
 	blocks := mock.NewBlockStore()
 	_ = blocks.Upsert(t.Context(), "base", []gasometer.BlockFee{{Number: 3_000, BaseFee: wei(1), ObservedAt: t0}})
 	fees := feeSource(5_000, 10_000_000)
-	tick, rec, snapshots := pollFixture(fees, blocks)
+	tick, rec, snapshots := pollFixture(fees, blocks, time.Now, nopLog)
 	live := fees.FeeHistoryFn
 	pollsAtBackfill := -1
 	fees.FeeHistoryFn = func(from, to uint64, p []float64) (gasometer.FeeHistory, error) {
@@ -77,8 +116,12 @@ func TestPollTickSkipsAfterFailedCollect(t *testing.T) {
 	fees.HeadFeeFn = func() (gasometer.HeadFee, error) { return gasometer.HeadFee{}, errors.New("rpc down") }
 	blocks := mock.NewBlockStore()
 	_ = blocks.Upsert(t.Context(), "base", []gasometer.BlockFee{{Number: 100, BaseFee: wei(1)}, {Number: 200, BaseFee: wei(1)}})
-	tick, rec, snapshots := pollFixture(fees, blocks)
+	var logged bytes.Buffer
+	tick, rec, snapshots := pollFixture(fees, blocks, time.Now, slog.New(slog.NewJSONHandler(&logged, nil)))
 	tick(context.Background())
+	if strings.Contains(logged.String(), `"msg":"tick"`) {
+		t.Errorf("a failed collect must not log the tick line, whose absence is what the log alert detects: %q", logged.String())
+	}
 	if rec.PollCount("base") != 0 || len(snapshots.Snapshots) != 0 || len(fees.Calls()) != 0 {
 		t.Fatal("a failed collect must skip forecasting, settling, backfilling and the poll metric")
 	}
@@ -98,9 +141,9 @@ func TestPruneTickLogsTheCount(t *testing.T) {
 		{Number: 1, ObservedAt: t0.Add(-49 * time.Hour)}, {Number: 2, ObservedAt: t0.Add(-47 * time.Hour)},
 	})
 	var logged bytes.Buffer
-	log := slog.New(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	log := slog.New(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	poll.NewPruneTick(blocks, 48*time.Hour, clock(t0), log)(t.Context())
-	if !strings.Contains(logged.String(), "msg=pruned blocks=1") {
+	if !strings.Contains(logged.String(), "level=INFO msg=pruned blocks=1") {
 		t.Fatalf("log %q", logged.String())
 	}
 	if got, _ := blocks.Range(t.Context(), "base", 0, 10); len(got) != 1 || got[0].Number != 2 {

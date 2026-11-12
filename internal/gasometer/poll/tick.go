@@ -20,7 +20,8 @@ type TickDeps struct {
 }
 
 // NewTick collects, forecasts and settles one network, then backfills with whatever is left of the tick. A failed
-// collect skips the rest of the tick. The poll duration excludes the backfill, which may run to the deadline.
+// collect skips the rest of the tick, tick line included. The poll duration metric excludes the backfill, which may
+// run to the deadline; the tick line's duration_ms includes it.
 func NewTick(network string, deps TickDeps) Tick {
 	log := deps.Log.With("network", network)
 	return func(ctx context.Context) {
@@ -44,7 +45,8 @@ func NewTick(network string, deps TickDeps) Tick {
 		if err != nil {
 			log.Warn("backfill failed; retrying next tick", "err", err)
 		}
-		log.Debug("tick", "block", obs.Head.Number, "predictions", made, "settled", settled, "backfilled", backfilled)
+		log.Info("tick", "block", obs.Head.Number, "predictions", made, "settled", settled, "backfilled", backfilled,
+			"duration_ms", deps.Now().Sub(start).Milliseconds())
 	}
 }
 
@@ -56,6 +58,6 @@ func NewPruneTick(blocks gasometer.BlockStore, retention time.Duration, now func
 			log.Warn("prune failed", "err", err)
 			return
 		}
-		log.Debug("pruned", "blocks", n)
+		log.Info("pruned", "blocks", n)
 	}
 }
