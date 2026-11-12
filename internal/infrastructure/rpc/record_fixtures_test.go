@@ -127,7 +127,10 @@ const saeFixtureBlocks = 1_000
 func TestRecordSAEFixture(t *testing.T) {
 	const url = "https://api.avax.network/ext/bc/C/rpc"
 	ctx := t.Context()
-	raw, err := ethrpc.DialContext(ctx, url)
+	// The test owns the transport so it can close the idle connections, which would otherwise outlive it.
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	defer transport.CloseIdleConnections()
+	raw, err := ethrpc.DialOptions(ctx, url, ethrpc.WithHTTPClient(&http.Client{Transport: transport}))
 	if err != nil {
 		t.Fatal(err)
 	}

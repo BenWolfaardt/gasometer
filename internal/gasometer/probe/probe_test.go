@@ -10,10 +10,16 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/goleak"
+
 	"github.com/BenWolfaardt/gasometer/internal/gasometer"
 	"github.com/BenWolfaardt/gasometer/internal/gasometer/probe"
 	"github.com/BenWolfaardt/gasometer/internal/mock"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
 
 var params = probe.Params{Network: "cchain", Timeout: 40 * time.Millisecond, PollInterval: 2 * time.Millisecond}
 

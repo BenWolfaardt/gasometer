@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"testing"
 	"time"
 
@@ -20,6 +21,8 @@ const (
 	replayHeaders = 500
 	// Public endpoints reject batches over 10, and rate-limit by request: Base at 25 a second, OP lower.
 	replayBatch = 10
+	// Public endpoints drop and rate-limit requests now and then; the test is of the fee maths, not their uptime.
+	replayAttempts = 5
 )
 
 type rawHeader struct {
@@ -73,16 +76,17 @@ func TestLiveReplayOPStack(t *testing.T) {
 
 func fetchHeaders(ctx context.Context, t *testing.T, url string, interval time.Duration) []rawHeader {
 	t.Helper()
-	client, err := rpc.DialContext(ctx, url)
+	// The test owns the transport so it can close the idle connections, which would otherwise outlive it.
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	defer transport.CloseIdleConnections()
+	client, err := rpc.DialOptions(ctx, url, rpc.WithHTTPClient(&http.Client{Transport: transport}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer client.Close()
 
 	var head hexutil.Uint64
-	if err := client.CallContext(ctx, &head, "eth_blockNumber"); err != nil {
-		t.Fatal(err)
-	}
+	retry(ctx, t, "eth_blockNumber", func() error { return client.CallContext(ctx, &head, "eth_blockNumber") })
 	first := uint64(head) - replayHeaders
 	headers := make([]rawHeader, replayHeaders+1)
 	pace := time.NewTicker(interval)
@@ -101,14 +105,17 @@ func fetchHeaders(ctx context.Context, t *testing.T, url string, interval time.D
 				Result: &headers[i],
 			})
 		}
-		if err := client.BatchCallContext(ctx, batch); err != nil {
-			t.Fatal(err)
-		}
-		for _, elem := range batch {
-			if elem.Error != nil {
-				t.Fatal(elem.Error)
+		retry(ctx, t, fmt.Sprintf("headers %d+", first+start), func() error {
+			if err := client.BatchCallContext(ctx, batch); err != nil {
+				return err
 			}
-		}
+			for _, elem := range batch {
+				if elem.Error != nil {
+					return elem.Error
+				}
+			}
+			return nil
+		})
 	}
 	for i, h := range headers {
 		if uint64(h.Number) != first+uint64(i) || h.BaseFee == nil {
@@ -116,6 +123,29 @@ func fetchHeaders(ctx context.Context, t *testing.T, url string, interval time.D
 		}
 	}
 	return headers
+}
+
+// retry runs call until it succeeds, up to replayAttempts times with doubling waits, logging every failure so a
+// flaky endpoint stays visible in the output.
+func retry(ctx context.Context, t *testing.T, what string, call func() error) {
+	t.Helper()
+	wait := time.Second
+	for attempt := 1; ; attempt++ {
+		err := call()
+		if err == nil {
+			return
+		}
+		if attempt == replayAttempts {
+			t.Fatalf("%s: %v (attempt %d of %d)", what, err, attempt, replayAttempts)
+		}
+		t.Logf("%s: %v (attempt %d of %d), retrying in %s", what, err, attempt, replayAttempts, wait)
+		select {
+		case <-ctx.Done():
+			t.Fatalf("%s: %v", what, ctx.Err())
+		case <-time.After(wait):
+		}
+		wait *= 2
+	}
 }
 
 func describe(h rawHeader) string {

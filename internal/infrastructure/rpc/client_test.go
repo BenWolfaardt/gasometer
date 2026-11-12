@@ -9,8 +9,19 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/goleak"
+
 	"github.com/BenWolfaardt/gasometer/internal/infrastructure/rpc"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m,
+		// libevm's package var core.SenderCacher starts NumCPU workers at import; they live for the process.
+		goleak.IgnoreTopFunction("github.com/ava-labs/libevm/core.(*txSenderCacher).cache"),
+		// libevm's metrics arbiter starts on the first NewMeter and is never stopped.
+		goleak.IgnoreTopFunction("github.com/ava-labs/libevm/metrics.(*meterArbiter).tick"),
+	)
+}
 
 func host(t *testing.T, raw string) string {
 	t.Helper()

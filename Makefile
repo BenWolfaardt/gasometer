@@ -71,7 +71,8 @@ integration: ## Run integration tests against GASOMETER_TEST_DATABASE_URL (see t
 
 .PHONY: live
 live: ## Replay recent Base and OP headers and C-Chain blocks against the fee models (needs network)
-	go test -tags live -count=1 -v -run TestLive ./internal/infrastructure/rpc/
+	# The tests' own deadlines total 46 minutes; go test's default of 10 would kill them before those fire.
+	go test -tags live -count=1 -v -timeout 50m -run TestLive ./internal/infrastructure/rpc/
 
 .PHONY: record-fixtures
 record-fixtures: ## Re-record the fixtures in internal/infrastructure/{rpc,sae}/testdata (needs network)

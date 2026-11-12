@@ -2,7 +2,16 @@
 
 package postgres_test
 
-import "math/big"
+import (
+	"math/big"
+	"testing"
+
+	"go.uber.org/goleak"
+)
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
 
 func wei(v int64) *big.Int { return big.NewInt(v) }
 
