@@ -19,6 +19,8 @@ One week of the live service, 2026-11-04 15:00 to 2026-11-11 15:00 UTC, with no 
 
 A bid lands if some block in its horizon has a required tip at or below the bid's tip, and a base fee its max fee covers. The required tip is a percentile of the tips a block included: the 5th on Base and OP, the 0th on C-Chain. That is an upper bound on what inclusion needed, so a landed share is a lower bound. Horizons are quoted in seconds because the number of blocks in each is derived from the observed block rate.
 
+C-Chain's minimum base fee is a validator vote, and it moved inside the window: it rose from 2.5 to 7.5 gwei on 2026-11-10, between about 00:00 and 06:00 UTC. C-Chain's mean fees average the two floors, and a landed bid cost about 2.9 times as much after the rise as before it. Overpaid shares fall when the floor rises, because the same overpaid tip is a smaller share of a larger fee: `market` at 30 seconds overpaid 55.3% before and 43.6% after.
+
 ## 2. Results
 
 ### 2 seconds
@@ -72,7 +74,7 @@ A bid lands if some block in its horizon has a required tip at or below the bid'
 | | `wallet` | 100.00% | $0.000055 | 86.1% |
 | | `gasometer` | 98.95% | $0.0000080 | under 0.1% |
 
-`wallet` bids the node's tip with a max fee of twice the next base fee, so it lands wherever `node` does and also where the base fee rises within the horizon. That only shows on C-Chain, where it lands 1.6 points more often at 2 seconds.
+`wallet` bids the node's tip with a max fee of twice the next base fee, so it lands wherever `node` does and also where the base fee rises within the horizon. That only shows on C-Chain. At 2 seconds it lands 1.6 points more often. At 30 and 120 seconds the gap comes from the six hours the floor rose: the base fee climbed every block, and `node`'s bids, capped at the next base fee plus the tip, landed 83% of the time against `wallet`'s 99.7% to 100%.
 
 ## 3. What each network shows
 
