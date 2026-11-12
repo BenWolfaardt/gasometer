@@ -1,0 +1,38 @@
+// The compose stack's container logs, read through the Docker API. The VM reads the journal instead, from its own
+// logs.alloy; host="compose" keeps a local stack off the VM's alert and the public panel.
+discovery.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "compose" {
+	targets = discovery.docker.containers.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+		regex         = "gasometer"
+		action        = "keep"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "service_name"
+	}
+}
+
+loki.source.docker "compose" {
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.relabel.compose.output
+	labels     = {"host" = "compose"}
+	forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+loki.write "grafana_cloud" {
+	endpoint {
+		url = sys.env("GRAFANA_CLOUD_LOKI_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_CLOUD_LOKI_USER")
+			password = sys.env("GRAFANA_CLOUD_API_TOKEN")
+		}
+	}
+}
