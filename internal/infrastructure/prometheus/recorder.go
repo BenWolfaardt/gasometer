@@ -161,8 +161,8 @@ func (r *Recorder) PollCompleted(network string, took time.Duration, at time.Tim
 	r.lastPoll.WithLabelValues(network).Set(float64(at.Unix()))
 }
 
-// ObserveRPC implements rpc.Observer.
-func (r *Recorder) ObserveRPC(network, method, endpoint, outcome string, took time.Duration) {
+// ObserveRPC implements rpc.Observer. The error is not a label; outcome already classifies it.
+func (r *Recorder) ObserveRPC(network, method, endpoint, outcome string, took time.Duration, _ error) {
 	r.rpcRequests.WithLabelValues(network, method, endpoint, outcome).Inc()
 	r.rpcDuration.WithLabelValues(network, method).Observe(took.Seconds())
 }

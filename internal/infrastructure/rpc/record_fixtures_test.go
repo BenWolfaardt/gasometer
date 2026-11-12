@@ -28,7 +28,7 @@ const fixtureDir = "testdata"
 
 type nopObserver struct{}
 
-func (nopObserver) ObserveRPC(string, string, string, string, time.Duration) {}
+func (nopObserver) ObserveRPC(string, string, string, string, time.Duration, error) {}
 
 // TestRecordFixtures drives every source against the public endpoints through a recording proxy and writes the
 // exchanges that tests/unit/rpc replays.

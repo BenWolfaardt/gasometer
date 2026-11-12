@@ -25,8 +25,14 @@ const (
 )
 
 // Observer receives one call per RPC attempt.
+//
+// Guarantees: called once per attempt, after it returns. err is the attempt's error, nil exactly when outcome is
+// OutcomeOK.
+// Ordering: in attempt order per Do call.
+// Errors: returns nothing; an implementation must not fail the call.
+// Concurrency: called from every goroutine using the client; implementations must be safe for concurrent use.
 type Observer interface {
-	ObserveRPC(network, method, endpoint, outcome string, took time.Duration)
+	ObserveRPC(network, method, endpoint, outcome string, took time.Duration, err error)
 }
 
 // Config controls one network's client.
@@ -126,7 +132,7 @@ func (c *Client) tryEndpoint(ctx context.Context, method string, e endpoint, cal
 		}
 		start := time.Now()
 		err = c.attempt(ctx, e, call)
-		c.observer.ObserveRPC(c.network, method, e.host, outcome(err), time.Since(start))
+		c.observer.ObserveRPC(c.network, method, e.host, outcome(err), time.Since(start), err)
 		if err == nil || !retryable(err) {
 			return err
 		}

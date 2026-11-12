@@ -50,7 +50,7 @@ func TestClientRetriesThenSucceeds(t *testing.T) {
 		t.Fatalf("observations %+v", got)
 	}
 	for i, o := range got {
-		if o.outcome != want[i] || o.method != "eth_maxPriorityFeePerGas" || o.endpoint != host(t, srv.URL) {
+		if o.outcome != want[i] || o.failed != (want[i] != rpc.OutcomeOK) || o.method != "eth_maxPriorityFeePerGas" || o.endpoint != host(t, srv.URL) {
 			t.Fatalf("observation %d: %+v", i, o)
 		}
 	}
@@ -114,7 +114,7 @@ func TestClientDoesNotRetryClientErrors(t *testing.T) {
 	if _, err := newFeeSource(newClient(t, observer, bad.URL, up.URL)).NodeTip(t.Context()); err == nil {
 		t.Fatal("want error")
 	}
-	if got := observer.outcomes(); len(got) != 1 || got[0].outcome != rpc.OutcomeError {
+	if got := observer.outcomes(); len(got) != 1 || got[0].outcome != rpc.OutcomeError || !got[0].failed {
 		t.Fatalf("observations %+v", got)
 	}
 }

@@ -99,6 +99,7 @@ func (r *replayServer) callCount(method string) int {
 
 type observation struct {
 	method, endpoint, outcome string
+	failed                    bool
 }
 
 type recordingObserver struct {
@@ -106,10 +107,10 @@ type recordingObserver struct {
 	obs []observation
 }
 
-func (o *recordingObserver) ObserveRPC(_, method, endpoint, outcome string, _ time.Duration) {
+func (o *recordingObserver) ObserveRPC(_, method, endpoint, outcome string, _ time.Duration, err error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	o.obs = append(o.obs, observation{method, endpoint, outcome})
+	o.obs = append(o.obs, observation{method, endpoint, outcome, err != nil})
 }
 
 func (o *recordingObserver) outcomes() []observation {

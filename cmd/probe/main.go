@@ -84,4 +84,4 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 // nopObserver discards per-request RPC metrics; a campaign exports none.
 type nopObserver struct{}
 
-func (nopObserver) ObserveRPC(string, string, string, string, time.Duration) {}
+func (nopObserver) ObserveRPC(string, string, string, string, time.Duration, error) {}

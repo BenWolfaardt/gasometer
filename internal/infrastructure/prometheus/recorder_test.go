@@ -185,7 +185,7 @@ func TestBlockCounters(t *testing.T) {
 func TestOperationalMetrics(t *testing.T) {
 	r, reg := newRecorder(t)
 	r.ModelMismatch("op")
-	r.ObserveRPC("op", "eth_feeHistory", "mainnet.optimism.io", "ok", 120*time.Millisecond)
+	r.ObserveRPC("op", "eth_feeHistory", "mainnet.optimism.io", "ok", 120*time.Millisecond, nil)
 	at := time.Unix(1_800_000_000, 0)
 	r.PollCompleted("op", 2*time.Second, at)
 	if f := family(t, reg, "gasometer_model_mismatch_total"); f.GetMetric()[0].GetCounter().GetValue() != 1 {
@@ -234,7 +234,7 @@ func TestSeriesBudget(t *testing.T) {
 		for _, m := range methods {
 			for _, e := range []string{"primary", "fallback"} {
 				for _, o := range []string{"ok", "retryable_error", "error"} {
-					r.ObserveRPC(n, m, e, o, time.Millisecond)
+					r.ObserveRPC(n, m, e, o, time.Millisecond, nil)
 				}
 			}
 		}
@@ -272,7 +272,7 @@ func TestRecorderConcurrentCallers(t *testing.T) {
 		r.BlocksBackfilled(network, 2)
 		r.BlocksLost(network, 3)
 		r.PollCompleted(network, time.Second, time.Unix(1_800_000_000, 0))
-		r.ObserveRPC(network, "eth_feeHistory", "example.org", "ok", time.Millisecond)
+		r.ObserveRPC(network, "eth_feeHistory", "example.org", "ok", time.Millisecond, nil)
 	})
 	for name, want := range map[string]float64{
 		"gasometer_model_mismatch_total":    8,

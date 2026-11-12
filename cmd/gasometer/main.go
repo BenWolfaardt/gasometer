@@ -76,7 +76,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 	var loops []*poll.Loop
 	for _, n := range cfg.Networks {
 		recorder.InitNetwork(n.Name)
-		client, err := rpc.NewClient(ctx, n.Name, rpc.Config(n.RPC), recorder)
+		client, err := rpc.NewClient(ctx, n.Name, rpc.Config(n.RPC), rpcObserver{next: recorder, log: log})
 		if err != nil {
 			return err
 		}
@@ -114,6 +114,23 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 }
 
 var _ rpc.Observer = (*prometheus.Recorder)(nil)
+
+var _ rpc.Observer = rpcObserver{}
+
+// rpcObserver forwards every attempt to next and logs the retryable ones with their cause. It cannot know whether a
+// later attempt recovers, so the line is per attempt; retries exhausted surface as the caller's Warn.
+type rpcObserver struct {
+	next rpc.Observer
+	log  *slog.Logger
+}
+
+func (o rpcObserver) ObserveRPC(network, method, endpoint, outcome string, took time.Duration, err error) {
+	o.next.ObserveRPC(network, method, endpoint, outcome, took, err)
+	if outcome == rpc.OutcomeRetryable {
+		o.log.Info("rpc attempt failed; retryable", "network", network, "method", method, "endpoint", endpoint,
+			"err", err, "took_ms", took.Milliseconds())
+	}
+}
 
 type stores struct {
 	blocks      *postgres.BlockStore
