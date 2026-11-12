@@ -5,6 +5,7 @@ package main_test
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -89,10 +90,18 @@ networks:
 	case <-time.After(15 * time.Second):
 		t.Fatalf("did not stop within 15s\n%s", stderr.String())
 	}
-	for _, want := range []string{"gasometer started", "collect failed", "gasometer stopped"} {
+	for _, want := range []string{"gasometer started", "rpc attempt failed; retryable", "collect failed", "gasometer stopped"} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Fatalf("log lacks %q:\n%s", want, stderr.String())
 		}
+	}
+	lines := strings.Split(strings.TrimSpace(stderr.String()), "\n")
+	var last map[string]any
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &last); err != nil {
+		t.Fatalf("last line %q: %v", lines[len(lines)-1], err)
+	}
+	if _, hasErr := last["err"]; last["level"] != "INFO" || last["msg"] != "gasometer stopped" || hasErr {
+		t.Fatalf("last line %v; a clean stop logs gasometer stopped at Info with no err", last)
 	}
 }
 

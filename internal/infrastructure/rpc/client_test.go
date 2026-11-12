@@ -172,6 +172,26 @@ func TestClientStopsOnCancel(t *testing.T) {
 	}
 }
 
+func TestClientReportsAnAttemptTheCallerEndedAsAnError(t *testing.T) {
+	slow := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+	}))
+	defer slow.Close()
+	observer := &recordingObserver{}
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	if _, err := newFeeSource(newClient(t, observer, slow.URL)).NodeTip(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("err %v", err)
+	}
+	// The per-attempt timeout is 2 s, so the 50 ms deadline is the caller's, not the endpoint's.
+	if got := observer.outcomes(); len(got) != 1 || got[0].outcome != rpc.OutcomeError || !got[0].failed {
+		t.Fatalf("observations %+v; want one error, not a retryable attempt", got)
+	}
+}
+
 func TestClientRateLimits(t *testing.T) {
 	_, srv := newReplayServer(t, "base")
 	cfg := testRPCConfig(srv.URL)

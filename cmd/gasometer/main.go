@@ -38,8 +38,9 @@ func main() {
 }
 
 // run wires every dependency and blocks until ctx ends. Shutdown order: the loops finish their ticks, the HTTP
-// server drains, then the RPC clients and the database close.
-func run(ctx context.Context, args []string, stderr io.Writer) error {
+// server drains, then the RPC clients and the database close. Once the logger exists, any error it returns is logged
+// at Error.
+func run(ctx context.Context, args []string, stderr io.Writer) (err error) {
 	v, err := buildViper(buildFlagSet(), args, stderr)
 	if errors.Is(err, pflag.ErrHelp) {
 		return nil
@@ -55,6 +56,11 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			log.Error("gasometer stopped", "err", err)
+		}
+	}()
 
 	if err := postgres.Migrate(cfg.Database.URL); err != nil {
 		return err
@@ -106,7 +112,6 @@ func run(ctx context.Context, args []string, stderr io.Writer) error {
 	}
 	g.Go(func() error { return server.Serve(gctx, listener) })
 	if err := g.Wait(); err != nil {
-		log.Error("gasometer stopped", "err", err)
 		return err
 	}
 	log.Info("gasometer stopped")

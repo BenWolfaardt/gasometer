@@ -95,3 +95,23 @@ func TestRPCObserverIsSafeForConcurrentCallers(t *testing.T) {
 		t.Fatalf("logged %d lines, want %d", n, callers*each)
 	}
 }
+
+func TestRunLogsAStartupFailureAtError(t *testing.T) {
+	var stderr bytes.Buffer
+	// Port 1 refuses the connection, so the migration fails after the logger exists.
+	err := run(t.Context(), []string{
+		"--" + configFileKey, writeConfig(t, minimalYAML), "--" + logFormatKey, "json",
+		"--database-url", "postgres://gasometer@127.0.0.1:1/gasometer?sslmode=disable&connect_timeout=2",
+	}, &stderr)
+	if err == nil {
+		t.Fatal("want a migration error")
+	}
+	lines := strings.Split(strings.TrimSpace(stderr.String()), "\n")
+	var got map[string]any
+	if jerr := json.Unmarshal([]byte(lines[len(lines)-1]), &got); jerr != nil {
+		t.Fatalf("last line %q: %v", lines[len(lines)-1], jerr)
+	}
+	if got["level"] != "ERROR" || got["msg"] != "gasometer stopped" || got["err"] != err.Error() {
+		t.Fatalf("last line %v; want gasometer stopped at Error with the returned error", got)
+	}
+}

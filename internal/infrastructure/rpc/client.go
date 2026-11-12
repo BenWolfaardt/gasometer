@@ -132,7 +132,7 @@ func (c *Client) tryEndpoint(ctx context.Context, method string, e endpoint, cal
 		}
 		start := time.Now()
 		err = c.attempt(ctx, e, call)
-		c.observer.ObserveRPC(c.network, method, e.host, outcome(err), time.Since(start), err)
+		c.observer.ObserveRPC(c.network, method, e.host, outcome(ctx, err), time.Since(start), err)
 		if err == nil || !retryable(err) {
 			return err
 		}
@@ -146,11 +146,13 @@ func (c *Client) attempt(ctx context.Context, e endpoint, call Call) error {
 	return call(ctx, e.client)
 }
 
-func outcome(err error) string {
+// outcome classifies an attempt. One the caller's context ended, such as a backfill reaching the tick deadline, is an
+// error: the endpoint did not cause it and it is never retried.
+func outcome(ctx context.Context, err error) string {
 	switch {
 	case err == nil:
 		return OutcomeOK
-	case retryable(err):
+	case ctx.Err() == nil && retryable(err):
 		return OutcomeRetryable
 	default:
 		return OutcomeError
