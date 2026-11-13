@@ -7,8 +7,9 @@ http-listen-address: ":9090"
 http-shutdown-timeout: 10s
 
 poll-interval: 60s
-# 30 days of blocks, about 650 MB, so backtests have a month to replay. Snapshots and predictions are kept indefinitely.
-block-retention: 720h
+# A year of blocks, about 15 GB at November 2026's 40 MB a day, so published figures can be re-queried. Snapshots and
+# predictions are kept indefinitely. A block archive is on the README roadmap.
+block-retention: 8760h
 
 horizons: [2, 30, 120]
 expiry-factor: 10

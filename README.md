@@ -198,6 +198,7 @@ The code follows Ben Johnson's [Standard Package Layout](https://medium.com/@ben
 
 - **Probe transactions.** Send real transfers at a ladder of tips and measure the required tip instead of bounding it. Built for C-Chain, with results in progress; Base and OP next.
 - **Bridge quotes.** Compare cross-chain bridge quotes with what the transfers actually cost.
+- **Block archive.** Export each day's blocks, compressed, to object storage before `block-retention` prunes them, so any past figure can be re-queried. Blocks grow about 40 MB a day; due when the disk reaches 70%.
 
 ## Licence
 
