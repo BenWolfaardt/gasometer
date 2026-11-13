@@ -4,6 +4,14 @@ Avalanche C-Chain runs Streaming Asynchronous Execution (SAE, [ACP-194][acp-194]
 
 Code links and snippets are from [avalanchego v1.15.2](https://github.com/ava-labs/avalanchego/tree/v1.15.2/vms/saevm), under `vms/saevm/` unless the path says otherwise. The pricing code they cite is unchanged in v1.15.3.
 
+## Findings
+
+- **The base fee is mostly a validator vote.** From 28 October, outside the floor rise on 10 November, 77% to 94% of each day's blocks were priced within 1% of the minimum gas price validators vote on ([section 6](#6-what-mainnet-shows)).
+- **That floor moves, and nothing announces it.** Validators tripled it from 2.5 to 7.5 gwei over 5.6 hours on the night of 9 to 10 November ([section 3](#why-parameters-move-slowly)).
+- **Bursts above the floor last minutes.** The longest since 28 October lasted 45 minutes. On 9 November, news that NYSE had picked Avalanche technology took the base fee to 53.7 gwei ([section 6](#6-what-mainnet-shows)).
+- **The RPC's next base fee is two different numbers.** Through the public endpoint, the tail of `eth_feeHistory` differed from `eth_baseFee` about one time in five ([section 7](#7-what-the-rpc-returns)).
+- **The model matches mainnet.** gasometer's replay of each head block's base fee matched the header on all 10,080 polls of its first clean week ([section 8](#8-validation)).
+
 ## Notation
 
 | Symbol | Meaning | Source |
