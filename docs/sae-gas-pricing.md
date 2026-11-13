@@ -256,6 +256,12 @@ Over 300 blocks on 27 October the chain was charged 0.75M gas/s, 9.4% of $R$, an
 - **The tip barely decides inclusion.** Blocks are nowhere near full, so any tip the builder accepts gets in. This is the overpay gasometer measures.
 - **The clock and the bound in section 5 matter in bursts.** A burst of full blocks starts from the floor and raises the fee 12.2% a block. SAE's first days are the only sustained period so far in which the clock set the price: since 28 October the longest run of blocks more than 1% above the floor is 2,438 blocks, 45 minutes on 30 October. Section 8 replays those first days.
 
+The busiest day since 28 October was 9 November, and it shows what moves the clock off the floor. That day, news that the New York Stock Exchange had picked Avalanche technology for the settlement layer of its planned tokenized stock platform sent AVAX up as much as 10% ([CoinCentral][nyse-news]). NYSE will run its own chain, not C-Chain, but C-Chain traffic jumped anyway. Between 12:00 and 16:00 UTC, as AVAX rose from 8.26 to 8.91 USD on the Chainlink feed gasometer records, mean block fullness (header `gasUsed` over gas limit) went from about 2% to 5%, peaking at 13% over ten minutes, and the clock lifted the base fee off the 2.5 gwei floor to 53.7 gwei. 23% of that day's blocks were priced more than 1% above the floor, the most of any day. Eight hours later validators began the floor rise described in section 3; nothing found ties it to the news.
+
+![AVAX price, C-Chain base fee and mean block fullness from 08:00 UTC on 9 November to 08:00 on 10 November](nyse-day.svg)
+
+*AVAX price, base fee (lowest and highest in each ten minutes, log scale) and mean block fullness, 2026-11-09 08:00 to 2026-11-10 08:00 UTC. Drawn by [`nyse-day.py`](nyse-day.py) from [`nyse-day.csv`](nyse-day.csv).*
+
 gasometer measures that overpay live, on its [public dashboard](https://ionsie.grafana.net/public-dashboards/f7aee50b6bb34f9e92f94ec700509cf8). Over the week of 4 to 11 November, a bid at the median tip on C-Chain overpaid by 51% to land within 30 seconds, while the node's suggestion and gasometer's own bid stayed within 0.5% of the cheapest bid that landed. The [first-week write-up](first-week.md) has the full results.
 
 ![Share of each bid's fee paid above the cheapest bid that landed within 30 seconds, on C-Chain, Base and Optimism, over the week](dashboard-week.png)
@@ -351,6 +357,7 @@ The live service runs the same replay on every poll: [`checkSAE`](../internal/ga
 [acp-176]: https://github.com/avalanche-foundation/ACPs/tree/main/ACPs/176-dynamic-evm-gas-limit-and-price-discovery-updates
 [acp-194]: https://github.com/avalanche-foundation/ACPs/tree/main/ACPs/194-continuous-execution
 [acp-283]: https://github.com/avalanche-foundation/ACPs/tree/main/ACPs/283-dynamic-minimum-gas-price
+[nyse-news]: https://coincentral.com/avalanche-avax-price-jumps-8-as-nyse-confirms-24-7-tokenized-stock-settlement-plan
 [after-block]: https://github.com/ava-labs/avalanchego/blob/v1.15.2/vms/saevm/gastime/acp176.go#L44-L67
 [after-gas-refund]: https://github.com/ava-labs/libevm/blob/2c4d255e0a63/core/state_transition.libevm.go#L119-L150
 [block-builder-basefee]: https://github.com/ava-labs/avalanchego/blob/v1.15.2/vms/saevm/sae/block_builder.go#L248-L249
